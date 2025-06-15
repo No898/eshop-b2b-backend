@@ -5,14 +5,17 @@ class ApplicationController < ActionController::API
 
   # SECURITY: Exception handling for non-GraphQL endpoints only
   # (GraphQL errors are handled in GraphQL schema)
-  rescue_from ActiveRecord::RecordNotFound, with: :handle_not_found, unless: :graphql_request?
-  rescue_from JWT::DecodeError, with: :handle_unauthorized, unless: :graphql_request?
-  rescue_from JWT::ExpiredSignature, with: :handle_unauthorized, unless: :graphql_request?
-  rescue_from ActionController::ParameterMissing, with: :handle_bad_request, unless: :graphql_request?
+  rescue_from ActiveRecord::RecordNotFound, with: :handle_not_found
+  rescue_from JWT::DecodeError, with: :handle_unauthorized
+  rescue_from JWT::ExpiredSignature, with: :handle_unauthorized
+  rescue_from ActionController::ParameterMissing, with: :handle_bad_request
 
   private
 
   def handle_not_found(exception = nil)
+    # Skip if GraphQL request - let GraphQL handle its own errors
+    return if graphql_request?
+
     Rails.logger.warn "Resource not found: #{exception&.message}"
     render json: {
       error: 'Not Found',
@@ -22,6 +25,9 @@ class ApplicationController < ActionController::API
   end
 
   def handle_unauthorized(exception = nil)
+    # Skip if GraphQL request - let GraphQL handle its own errors
+    return if graphql_request?
+
     Rails.logger.warn "Unauthorized access: #{exception&.message}"
     render json: {
       error: 'Unauthorized',
@@ -31,6 +37,9 @@ class ApplicationController < ActionController::API
   end
 
   def handle_bad_request(exception)
+    # Skip if GraphQL request - let GraphQL handle its own errors
+    return if graphql_request?
+
     Rails.logger.warn "Bad request: #{exception.message}"
     render json: {
       error: 'Bad Request',
