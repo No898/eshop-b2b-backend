@@ -15,6 +15,13 @@ class Order < ApplicationRecord
     cancelled: 4
   }
 
+  enum :payment_status, {
+    no_payment: 0,
+    payment_pending: 1,
+    payment_completed: 2,
+    payment_failed: 3,
+    payment_cancelled: 4
+  }
   scope :recent, -> { order(created_at: :desc) }
 
   def total_decimal
