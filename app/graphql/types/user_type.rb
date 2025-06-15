@@ -13,6 +13,12 @@ module Types
     # Associations
     field :orders, [Types::OrderType], null: false, description: 'Seznam objednávek uživatele'
     def orders
+      current_user = context[:current_user]
+
+      # SECURITY: Only show orders if user has permission
+      return [] unless current_user
+      return [] unless current_user.can_access_user_data?(object)
+
       object.orders.order(created_at: :desc)
     end
 

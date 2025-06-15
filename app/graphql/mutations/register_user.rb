@@ -28,7 +28,7 @@ module Mutations
 
       if user.save
         # Generujeme JWT token pro okamžité přihlášení
-        token = generate_jwt_token(user)
+        token = JwtService.generate_token(user)
 
         {
           user: user,
@@ -42,17 +42,6 @@ module Mutations
           errors: user.errors.full_messages
         }
       end
-    end
-
-    private
-
-    def generate_jwt_token(user)
-      # Použijeme Devise JWT pro generování tokenu
-      { sub: user.id, iat: Time.current.to_i }
-      Warden::JWTAuth::UserEncoder.new.call(user, :user, nil).first
-    rescue StandardError => e
-      Rails.logger.error("Chyba při generování JWT: #{e.message}")
-      nil
     end
   end
 end

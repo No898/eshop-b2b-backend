@@ -2,8 +2,8 @@
 
 module Webhooks
   class ComgateController < ApplicationController
-    # Skip authentication for webhooks
-    skip_before_action :authenticate_user!, if: :devise_controller?
+    # Skip authentication for webhooks (external service calls)
+    skip_before_action :authenticate_user!
 
     before_action :verify_webhook_signature
     before_action :log_webhook_request
@@ -60,7 +60,10 @@ module Webhooks
 
     def calculate_expected_signature
       secret = Rails.application.credentials.comgate&.dig(:secret) || ENV.fetch('COMGATE_SECRET', nil)
-      return nil if secret.blank?
+      if secret.blank?
+        Rails.logger.error('COMGATE_SECRET not configured - webhook signature verification disabled')
+        return nil
+      end
 
       # Comgate uses HMAC-SHA256 with specific parameter order
       data = build_signature_data

@@ -15,7 +15,7 @@ module Mutations
       user = User.find_by(email: email.downcase.strip)
 
       if user&.valid_password?(password)
-        token = generate_jwt_token(user)
+        token = JwtService.generate_token(user)
 
         {
           user: user,
@@ -29,25 +29,6 @@ module Mutations
           errors: ['Invalid email or password']
         }
       end
-    end
-
-    private
-
-    def generate_jwt_token(user)
-      payload = {
-        sub: user.id,
-        iat: Time.current.to_i,
-        exp: 24.hours.from_now.to_i
-      }
-
-      secret_key = Rails.application.credentials.devise_jwt_secret_key ||
-                   ENV['JWT_SECRET_KEY'] ||
-                   'fallback_secret_key_for_development'
-
-      JWT.encode(payload, secret_key, 'HS256')
-    rescue StandardError => e
-      Rails.logger.error("JWT token generation failed: #{e.message}")
-      nil
     end
   end
 end

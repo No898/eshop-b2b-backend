@@ -5,7 +5,10 @@ class GraphqlController < ApplicationController
     variables = prepare_variables(params[:variables])
     query = params[:query]
     operation_name = params[:operationName]
-    context = { current_user: current_user }
+    context = {
+      current_user: current_user,
+      request: request # For security logging
+    }
     result = LooteaB2bBackendSchema.execute(query, variables: variables, context: context,
                                                    operation_name: operation_name)
     render json: result
@@ -25,21 +28,7 @@ class GraphqlController < ApplicationController
 
   def authenticate_user_from_token
     token = extract_token_from_header
-    return nil unless token
-
-    begin
-      secret_key = Rails.application.credentials.devise_jwt_secret_key ||
-                   ENV['JWT_SECRET_KEY'] ||
-                   'fallback_secret_key_for_development'
-
-      decoded_token = JWT.decode(token, secret_key, true, { algorithm: 'HS256' })
-      user_id = decoded_token.first['sub']
-
-      User.find_by(id: user_id)
-    rescue JWT::DecodeError, JWT::ExpiredSignature => e
-      Rails.logger.warn("JWT authentication failed: #{e.message}")
-      nil
-    end
+    JwtService.extract_user_from_token(token)
   end
 
   def extract_token_from_header
