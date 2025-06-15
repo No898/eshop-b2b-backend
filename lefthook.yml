@@ -11,7 +11,7 @@ pre-commit:
     # Trailing whitespace cleanup
     - name: trailing-whitespace
       glob: "*.{rb,yml,yaml,js,css,scss,md}"
-      run: sed -i '' -e's/[[:space:]]*$//' {all_files}
+      run: sed -i 's/[[:space:]]*$//' {all_files}
       stage_fixed: true
 
 pre-push:
