@@ -1,0 +1,64 @@
+# Omakase Ruby styling for Rails
+inherit_gem: { rubocop-rails-omakase: rubocop.yml }
+
+# Overwrite or add rules to create your own house style
+#
+# # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
+# Layout/SpaceInsideArrayLiteralBrackets:
+#   Enabled: false
+
+require:
+  - rubocop-rails
+  - rubocop-performance
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.3
+  Exclude:
+    - 'db/schema.rb'
+    - 'db/migrate/*.rb'
+    - 'vendor/**/*'
+    - 'bin/**/*'
+    - 'config/boot.rb'
+    - 'config/environment.rb'
+    - 'config/application.rb'
+
+# Rozumné limity - ne moc přísné
+Layout/LineLength:
+  Max: 120  # Ne 80 jak default
+  Exclude:
+    - 'config/**/*.rb'
+
+Style/Documentation:
+  Enabled: false  # Ne všechno musí mít komentáře
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*.rb'  # RSpec bloky mohou být dlouhé
+    - 'config/routes.rb'
+    - 'config/environments/*.rb'
+    - 'app/graphql/**/*.rb'  # GraphQL typy mají dlouhé bloky
+
+Metrics/AbcSize:
+  Max: 20  # Trochu více než default 17
+
+Metrics/MethodLength:
+  Max: 15  # Trochu více než default 10
+  Exclude:
+    - 'app/graphql/mutations/*.rb'  # Mutations mohou být delší
+
+# Rails specifics
+Rails/FilePath:
+  Enabled: false  # Rails.root.join vs File.join - nechci být přísný
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+# GraphQL specifika
+Style/SymbolArray:
+  Exclude:
+    - 'app/graphql/**/*.rb'
+
+Naming/VariableNumber:
+  Enabled: false  # user_1, user_2 v testech je OK

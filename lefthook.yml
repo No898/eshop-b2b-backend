@@ -1,0 +1,41 @@
+
+# Rychlé, pragmatické, team-friendly
+
+pre-commit:
+  parallel: true
+  jobs:
+    # Code style - rychlé, pouze staged files
+    - name: rubocop
+      glob: "*.{rb}"
+      run: bundle exec rubocop {staged_files} --force-exclusion --autocorrect
+      stage_fixed: true
+      
+    # Security scan - celý projekt
+    - name: brakeman
+      run: bundle exec brakeman --quiet --no-progress --exit-on-warn
+      
+    # Trailing whitespace cleanup
+    - name: trailing-whitespace
+      glob: "*.{rb,yml,yaml,js,css,scss,md}"
+      run: sed -i '' -e's/[[:space:]]*$//' {all_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    # Testy jen při push, ne při každém commitu
+    - name: tests
+      run: bundle exec rspec --fail-fast
+      skip:
+        - merge
+        - rebase
+      tags:
+        - test
+        
+    # Databáze migrace check
+    - name: schema-check
+      run: |
+        if [ -n "$(git diff --name-only HEAD~1..HEAD -- db/migrate/)" ]; then
+          echo "✅ Migrace detekovaná, kontroluji schema..."
+          bundle exec rails db:migrate:status
+        fi
+
