@@ -78,6 +78,8 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
+  url: <%= ENV['DATABASE_URL'] %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   primary: &primary_production
     <<: *default
     database: lootea_b2b_backend_production
