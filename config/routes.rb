@@ -15,4 +15,9 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+
+  # Webhook endpoints
+  namespace :webhooks do
+    post 'comgate', to: 'comgate#receive'
+  end
 end

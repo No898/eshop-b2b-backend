@@ -772,6 +772,303 @@ function App() {
 
 ---
 
+## 💳 Payment Webhook (pro vývojáře)
+
+### Jak funguje platební proces
+1. Frontend zavolá `payOrder` mutation
+2. Backend vytvoří platbu v Comgate
+3. Uživatel je přesměrován na platební bránu
+4. Po platbě Comgate pošle webhook na náš backend
+5. Backend aktualizuje status objednávky
+6. Frontend může polling/refetch pro aktuální status
+
+### Webhook endpoint (pouze informativně)
+- **URL:** `POST /webhooks/comgate`
+- **Zabezpečení:** HMAC-SHA256 signature
+- **Automatické:** Comgate volá sám po změně statusu
+
+### Status mapping pro UI
+```typescript
+// Tyto statusy můžeš očekávat v objednávce
+const paymentStatusLabels = {
+  'no_payment': 'Čeká na platbu',
+  'payment_pending': 'Platba probíhá...',
+  'payment_completed': 'Zaplaceno ✅',
+  'payment_failed': 'Platba selhala ❌',
+  'payment_cancelled': 'Platba zrušena'
+};
+
+// Použití v komponentě
+function PaymentStatus({ order }) {
+  const statusLabel = paymentStatusLabels[order.paymentStatus] || 'Neznámý status';
+  const statusColor = {
+    'no_payment': 'text-gray-500',
+    'payment_pending': 'text-yellow-500',
+    'payment_completed': 'text-green-500',
+    'payment_failed': 'text-red-500',
+    'payment_cancelled': 'text-red-400'
+  }[order.paymentStatus] || 'text-gray-500';
+
+  return (
+    <span className={statusColor}>
+      {statusLabel}
+    </span>
+  );
+}
+```
+
+### Polling pro aktuální status
+```typescript
+// Doporučený způsob pro kontrolu statusu po návratu z platby
+const GET_ORDER_STATUS = gql`
+  query GetOrderStatus($id: ID!) {
+    order(id: $id) {
+      id
+      paymentStatus
+      paymentCompleted
+      paymentFailed
+      totalDecimal
+    }
+  }
+`;
+
+function OrderStatusChecker({ orderId }) {
+  const { data, startPolling, stopPolling } = useQuery(GET_ORDER_STATUS, {
+    variables: { id: orderId },
+    pollInterval: 0 // Vypnuto defaultně
+  });
+
+  // Spustit polling po návratu z platby
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const justReturnedFromPayment = urlParams.get('payment') === 'return';
+
+    if (justReturnedFromPayment) {
+      startPolling(2000); // Každé 2 sekundy
+
+      // Zastavit po 30 sekundách nebo když je zaplaceno/selhalo
+      const timeout = setTimeout(() => stopPolling(), 30000);
+
+      if (data?.order?.paymentCompleted || data?.order?.paymentFailed) {
+        stopPolling();
+        clearTimeout(timeout);
+      }
+
+      return () => clearTimeout(timeout);
+    }
+  }, [data?.order?.paymentCompleted, data?.order?.paymentFailed]);
+
+  return (
+    <div>
+      <PaymentStatus order={data?.order} />
+    </div>
+  );
+}
+```
+
+### Testování plateb v development
+
+#### 1. Test webhook endpoint (pro backend vývojáře)
+```bash
+# Test že webhook endpoint funguje
+curl -X POST http://localhost:3000/webhooks/comgate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transId": "test123",
+    "refId": "1",
+    "status": "PAID",
+    "price": "299",
+    "curr": "CZK",
+    "test": "true"
+  }'
+```
+
+#### 2. Simulace platebního procesu ve frontend
+```typescript
+// Hook pro simulaci platby v development
+const useTestPayment = (orderId: string) => {
+  const [payOrder] = useMutation(PAY_ORDER);
+
+  const simulatePayment = async (status: 'PAID' | 'CANCELLED' | 'FAILED') => {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn('Test platby pouze v development!');
+      return;
+    }
+
+    try {
+      // 1. Vytvoř platbu
+      const { data } = await payOrder({ variables: { orderId } });
+
+      if (data.payOrder.errors.length > 0) {
+        console.error('Chyba při vytváření platby:', data.payOrder.errors);
+        return;
+      }
+
+      // 2. Simuluj webhook po 2 sekundách
+      setTimeout(async () => {
+        await fetch('http://localhost:3000/webhooks/comgate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transId: data.payOrder.paymentId,
+            refId: orderId,
+            status: status,
+            price: "299",
+            curr: "CZK",
+            test: "true"
+          })
+        });
+
+        console.log(`Simulován webhook se statusem: ${status}`);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Chyba při simulaci platby:', error);
+    }
+  };
+
+  return { simulatePayment };
+};
+
+// Použití v development komponentě
+function TestPaymentButtons({ orderId }) {
+  const { simulatePayment } = useTestPayment(orderId);
+
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
+
+  return (
+    <div className="p-4 bg-yellow-100 border border-yellow-400 rounded">
+      <h3 className="font-bold mb-2">🧪 Test platby (pouze development)</h3>
+      <div className="space-x-2">
+        <button
+          onClick={() => simulatePayment('PAID')}
+          className="bg-green-500 text-white px-3 py-1 rounded"
+        >
+          Simulovat úspěšnou platbu
+        </button>
+        <button
+          onClick={() => simulatePayment('FAILED')}
+          className="bg-red-500 text-white px-3 py-1 rounded"
+        >
+          Simulovat neúspěšnou platbu
+        </button>
+        <button
+          onClick={() => simulatePayment('CANCELLED')}
+          className="bg-gray-500 text-white px-3 py-1 rounded"
+        >
+          Simulovat zrušenou platbu
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Payment Flow UX doporučení
+
+#### 1. Loading states během platby
+```typescript
+function PaymentButton({ orderId }) {
+  const [payOrder, { loading }] = useMutation(PAY_ORDER);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const handlePayment = async () => {
+    try {
+      const { data } = await payOrder({ variables: { orderId } });
+
+      if (data.payOrder.errors.length === 0) {
+        setIsRedirecting(true);
+        // Krátké zpoždění pro UX
+        setTimeout(() => {
+          window.location.href = data.payOrder.paymentUrl;
+        }, 1000);
+      }
+    } catch (error) {
+      setIsRedirecting(false);
+    }
+  };
+
+  if (isRedirecting) {
+    return (
+      <div className="text-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+        <p>Přesměrováváme na platební bránu...</p>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={handlePayment}
+      disabled={loading}
+      className="bg-blue-500 text-white px-6 py-2 rounded disabled:opacity-50"
+    >
+      {loading ? 'Připravujeme platbu...' : 'Zaplatit'}
+    </button>
+  );
+}
+```
+
+#### 2. Return URL handling
+```typescript
+// pages/payment-return.tsx nebo podobná komponenta
+function PaymentReturn() {
+  const router = useRouter();
+  const { orderId } = router.query;
+
+  const { data, loading } = useQuery(GET_ORDER_STATUS, {
+    variables: { id: orderId },
+    pollInterval: 2000, // Polling každé 2 sekundy
+    skip: !orderId
+  });
+
+  useEffect(() => {
+    if (data?.order) {
+      const { paymentCompleted, paymentFailed, paymentCancelled } = data.order;
+
+      if (paymentCompleted) {
+        // Úspěšná platba
+        toast.success('Platba byla úspěšně dokončena! 🎉');
+        router.push(`/orders/${orderId}?success=true`);
+      } else if (paymentFailed || paymentCancelled) {
+        // Neúspěšná platba
+        toast.error('Platba se nezdařila. Zkuste to prosím znovu.');
+        router.push(`/orders/${orderId}?error=true`);
+      }
+    }
+  }, [data?.order]);
+
+  return (
+    <div className="text-center p-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+      <h2 className="text-xl font-bold mb-2">Zpracováváme vaši platbu</h2>
+      <p className="text-gray-600">Prosím čekejte, ověřujeme stav platby...</p>
+    </div>
+  );
+}
+```
+
+### Webhook troubleshooting
+
+#### Časté problémy
+1. **Webhook se nevolá** - Zkontroluj URL v Comgate nastavení
+2. **Neplatný podpis** - Zkontroluj secret key v credentials
+3. **Order nenalezen** - Zkontroluj refId mapping
+4. **Status se neaktualizuje** - Zkontroluj allowed transitions
+
+#### Debug webhook v development
+```bash
+# Použij ngrok pro lokální webhook testing
+npx ngrok http 3000
+
+# Pak nastav webhook URL v Comgate na:
+# https://your-ngrok-url.ngrok.io/webhooks/comgate
+```
+
+---
+
 ## 🐛 Troubleshooting
 
 ### Časté problémy a řešení
