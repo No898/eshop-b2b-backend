@@ -8,5 +8,6 @@ module Types
 
     # Order mutations
     field :create_order, mutation: Mutations::CreateOrder
+    field :pay_order, mutation: Mutations::PayOrder
   end
 end

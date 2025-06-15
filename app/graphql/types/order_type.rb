@@ -32,5 +32,27 @@ module Types
     # Metadata
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false, description: 'Datum vytvoření'
     field :updated_at, GraphQL::Types::ISO8601DateTime, null: false, description: 'Datum poslední aktualizace'
+
+    # Platební pole
+    field :payment_status, String, null: false, description: 'Stav platby'
+    field :payment_id, String, null: true, description: 'ID platby v Comgate'
+    field :payment_url, String, null: true, description: 'URL pro platbu'
+
+    # Helper metody pro platební stavy
+    field :payment_pending, Boolean, null: false, description: 'Čeká na platbu'
+    field :payment_completed, Boolean, null: false, description: 'Platba dokončena'
+    field :payment_failed, Boolean, null: false, description: 'Platba selhala'
+
+    def payment_pending
+      object.payment_pending?
+    end
+
+    def payment_completed
+      object.payment_completed?
+    end
+
+    def payment_failed
+      object.payment_failed?
+    end
   end
 end
