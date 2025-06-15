@@ -2,9 +2,6 @@
 
 module Webhooks
   class ComgateController < ApplicationController
-    # Skip CSRF protection for webhook endpoints
-    skip_before_action :verify_authenticity_token
-
     # Skip authentication for webhooks
     skip_before_action :authenticate_user!, if: :devise_controller?
 
