@@ -14,42 +14,71 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - PostgreSQL napojeno
 - GraphQL nainstalováno (`rails generate graphql:install`)
 - Repo inicializováno (Git)
+- **Modely + migrace** (User, Product, Order, OrderItem s validacemi a enums)
+- **GraphQL typy/query/mutace** (všechny typy, login/register, produkty, objednávky)
+- **Platby** (Comgate integrace, payOrder mutace, webhook zpracování)
+- **Background joby** (ActiveJob pro webhooks, mailing příprava)
+- **Centralizované služby** (JwtService pro token management)
+- **Pokročilé GraphQL zabezpečení** (introspection blocking, query limits, monitoring)
+- **Rate limiting** (Rack::Attack s SQL injection/XSS ochranou)
+- **Modularizace kódu** (GraphQL concerns pro lepší organizaci)
+- **Kompletní dokumentace** (GRAPHQL_SECURITY.md s Railway konfigurací)
+- **Deploy na Railway** (automatický z main branch)
 
 ---
 
-## 🚀 Další kroky
+## 🚀 Co můžeme ještě udělat
 
-1️⃣ **Modely + migrace**
-- Vytvořit Product model (name, description, price_cents, currency, available)
-- Vytvořit Order model (user, total_cents, currency, status enum)
-- Vytvořit OrderItem model (order, product, quantity, unit_price_cents)
+1️⃣ **Testování**
+- RSpec testy pro modely (validace, asociace, metody)
+- GraphQL mutation/query testy
+- Controller testy (webhooks, autentizace)
+- Integration testy pro celé flow (registrace → objednávka → platba)
+- Security testy (rate limiting, introspection blocking)
 
-2️⃣ **GraphQL typy / query / mutace**
-- ProductType, OrderType, OrderItemType
-- Query pro seznam produktů
-- Mutation pro vytvoření objednávky
-- Login mutace pro zákazníky a adminy
+2️⃣ **CI/CD Pipeline**
+- GitHub Actions pro automatické testování
+- Linting (RuboCop) v pipeline
+- Security scanning (Brakeman)
+- Automatické deploy pouze při úspěšných testech
 
-3️⃣ **Platby**
-- Service objekt pro Comgate integraci
-- Mutation `payOrder` → vrací URL pro redirect
-- Webhook route pro Comgate callback → job zpracuje výsledek
+3️⃣ **Monitoring & Observability**
+- Structured logging (JSON format)
+- Application Performance Monitoring (APM)
+- Error tracking (Sentry/Rollbar)
+- Health check endpoints
+- Metrics dashboard
 
-4️⃣ **Background joby**
-- ActiveJob na webhook zpracování
-- Příprava na mailing (např. potvrzení objednávky)
+4️⃣ **API Vylepšení**
+- API versioning (v1, v2)
+- GraphQL subscriptions (real-time updates)
+- File upload handling
+- Bulk operations (hromadné operace)
+- Advanced filtering a sorting
 
-5️⃣ **CI/CD + hosting**
-- Deploy na Railway
-- GitHub Actions pipeline
-- Env proměnné pro JWT, DB apod.
+5️⃣ **Security & Performance**
+- Database indexy pro performance
+- Query optimization
+- Caching strategie (Redis)
+- API dokumentace (GraphQL Playground)
+- CORS konfigurace pro frontend
+
+6️⃣ **Business Features**
+- Email notifikace (ActionMailer + templates)
+- Admin panel funkcionalita
+- Inventory management
+- Discount/coupon systém
+- Multi-tenant support (pokud potřeba)
 
 ---
 
 ## 🌟 Cíle
-- Naučit se psát vše ručně, bez generovaných boilerplate repozitářů
-- Mít čistý, bezpečný, moderní stack
-- Postavit API, které frontend (Next.js) pohodlně konzumuje
+- ✅ Naučit se psát vše ručně, bez generovaných boilerplate repozitářů
+- ✅ Mít čistý, bezpečný, moderní stack
+- ✅ Postavit API, které frontend (Next.js) pohodlně konzumuje
+- 🔄 Přidat kompletní test coverage
+- 🔄 Implementovat production-ready monitoring
+- 🔄 Vytvořit robustní CI/CD pipeline
 
 ---
 

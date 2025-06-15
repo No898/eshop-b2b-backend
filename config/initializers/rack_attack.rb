@@ -7,10 +7,13 @@ return unless Rails.application.config.security.enable_rate_limiting
 module Rack
   class Attack
     # SECURITY: Configure Redis for production, memory for development
-    Rack::Attack.cache.store = if Rails.env.production?
-                                 ActiveSupport::Cache::RedisCacheStore.new(
-                                   url: ENV['REDIS_URL'] || 'redis://localhost:6379/1'
-                                 )
+    Rack::Attack.cache.store = if Rails.env.production? && ENV['REDIS_URL']
+                                 begin
+                                   ActiveSupport::Cache::RedisCacheStore.new(url: ENV['REDIS_URL'])
+                                 rescue LoadError
+                                   Rails.logger.warn('Redis gem not available, falling back to memory store')
+                                   ActiveSupport::Cache::MemoryStore.new
+                                 end
                                else
                                  ActiveSupport::Cache::MemoryStore.new
                                end

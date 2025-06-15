@@ -17,6 +17,7 @@ gem 'graphql'
 
 # Security
 gem 'rack-attack'
+gem 'redis', '>= 4.0.1'
 
 # Background jobs
 gem 'sidekiq'
