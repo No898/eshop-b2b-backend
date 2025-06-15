@@ -3,7 +3,7 @@
 
 Tento dokument definuje plán vývoje backendu pro projekt **Lootea B2B**, postavený na Ruby on Rails (API-only) + GraphQL + Devise JWT.
 
-📝 **Poznámka:**  
+📝 **Poznámka:**
 Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hloubky.
 
 ---

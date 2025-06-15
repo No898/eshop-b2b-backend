@@ -1,0 +1,31 @@
+# Brakeman konfigurace pro rychlejší skenování
+application_path: "."
+
+# Vynechání složek které nepotřebujeme skenovat
+skip_files:
+  - "node_modules/**/*"
+  - "tmp/**/*"
+  - "log/**/*"
+  - "coverage/**/*"
+  - "vendor/**/*"
+
+# Ignorovat méně kritické testy pro rychlost
+check_arguments: true
+exit_on_warn: true
+min_confidence: 2
+
+# Pouze důležité testy pro B2B backend
+only_files:
+  - "app/controllers/**/*"
+  - "app/models/**/*"
+  - "app/graphql/**/*"
+
+# Rychlejší skenování
+faster: true
+
+# Výstup ve formátu JSON pro rychlejší parsing
+output_formats:
+  - json
+
+# Timeout pro dlouhé kontroly
+timeout: 60

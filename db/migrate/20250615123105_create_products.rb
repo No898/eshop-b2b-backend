@@ -9,7 +9,7 @@ class CreateProducts < ActiveRecord::Migration[8.0]
 
       t.timestamps
     end
-    
+
     add_index :products, :available
   end
 end

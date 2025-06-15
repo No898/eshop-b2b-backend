@@ -28,16 +28,16 @@ sequenceDiagram
     participant F as Frontend (Next.js)
     participant R as Rails GraphQL API
     participant D as PostgreSQL DB
-    
+
     F->>R: POST /graphql + query
     Note over F,R: Jeden endpoint pro vše
-    
+
     R->>R: Parsování + validace query
     R->>D: SQL dotazy dle query
     D-->>R: Data z databáze
     R->>R: Sestavení odpovědi dle query
     R-->>F: JSON s přesně požadovanými daty
-    
+
     Note over F,R: Frontend dostal jen to, co chtěl
 ```
 
@@ -68,7 +68,7 @@ graph TD
     G --> H[PostgreSQL Database]
     H --> I[JSON Response]
     I --> A
-    
+
     style A fill:#e1f5fe,color:#000
     style C fill:#f3e5f5,color:#000
     style E fill:#e8f5e8,color:#000
@@ -103,14 +103,14 @@ sequenceDiagram
     participant G as GraphQL API
     participant D as Database
     participant J as JWT Service
-    
+
     F->>G: mutation registerUser/loginUser
     G->>D: Najdi/vytvoř user v DB
     D-->>G: User object
     G->>J: Vygeneruj JWT token
     J-->>G: JWT token
     G-->>F: { user, token, errors }
-    
+
     Note over F: Uloží token do localStorage
 ```
 
@@ -121,16 +121,16 @@ sequenceDiagram
     participant G as GraphqlController
     participant J as JWT Decoder
     participant D as Database
-    
+
     F->>G: POST /graphql + Authorization header
     Note over F,G: Authorization: Bearer <token>
-    
+
     G->>J: Dekóduj JWT token
     J-->>G: User ID z tokenu
     G->>D: User.find(id)
     D-->>G: current_user object
     G->>G: Přidá current_user do context
-    
+
     Note over G: Resolver má přístup k current_user
 ```
 
@@ -351,7 +351,7 @@ graph TD
     H --> I[OrderItem.create! pro každý item]
     I --> J[COMMIT]
     J --> K[return order]
-    
+
     G --> L{Chyba?}
     L -->|Ano| M[ROLLBACK + return errors]
 ```
@@ -507,7 +507,7 @@ puts result.to_json
 field :price_cents, Integer, null: false
 field :price_decimal, Float, null: false
 
-# ❌ Špatně  
+# ❌ Špatně
 field :price, Float, null: false  # Float problémy!
 ```
 
@@ -519,7 +519,7 @@ def is_pending
   object.pending?
 end
 
-field :items_count, Integer, null: false  
+field :items_count, Integer, null: false
 def items_count
   object.order_items.sum(:quantity)
 end
@@ -597,4 +597,4 @@ end
 
 ---
 
-**🚀 Teď máš kompletní přehled o tom, jak naše GraphQL API funguje!** 
+**🚀 Teď máš kompletní přehled o tom, jak naše GraphQL API funguje!**

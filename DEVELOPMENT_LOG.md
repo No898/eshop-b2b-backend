@@ -38,7 +38,7 @@ lootea-b2b-backend/
 │   ├── models/
 │   │   ├── user.rb              # Devise User model
 │   │   ├── product.rb           # Produkty
-│   │   ├── order.rb             # Objednávky  
+│   │   ├── order.rb             # Objednávky
 │   │   └── order_item.rb        # Položky objednávek
 │   ├── graphql/                 # GraphQL schema
 │   └── controllers/             # API controllers
@@ -203,7 +203,7 @@ rails server
 -- Products
 CREATE INDEX index_products_on_available ON products (available);
 
--- Orders  
+-- Orders
 CREATE INDEX index_orders_on_status ON orders (status);
 CREATE INDEX index_orders_on_user_id_and_created_at ON orders (user_id, created_at);
 
@@ -360,8 +360,8 @@ user = User.create!(email: "test@example.com", password: "password123")
 
 # Produkt
 product = Product.create!(
-  name: "Lootea Premium", 
-  description: "Nejlepší čaj na světě", 
+  name: "Lootea Premium",
+  description: "Nejlepší čaj na světě",
   price_cents: 29900,
   currency: "CZK"
 )
@@ -389,7 +389,7 @@ product.available?          # => true
 product.price_decimal       # => 299.0
 Product.available.count     # => 1
 
-# Order  
+# Order
 order.pending?              # => true
 order.paid!                 # změní status
 order.total_decimal         # => 599.0
@@ -529,9 +529,9 @@ rails routes | grep graphql
 
 ## 📞 Kontakt a poznámky
 
-**Datum vytvoření:** 15. června 2025  
-**Autor:** Tomáš (s AI mentorem)  
-**Stav:** Dokončen krok 1/5 - Modely a migrace  
-**Další krok:** GraphQL typy a queries  
+**Datum vytvoření:** 15. června 2025
+**Autor:** Tomáš (s AI mentorem)
+**Stav:** Dokončen krok 1/5 - Modely a migrace
+**Další krok:** GraphQL typy a queries
 
 **Poznámka:** Všechny kroky se dělají postupně pro lepší pochopení a učení se Rails best practices.

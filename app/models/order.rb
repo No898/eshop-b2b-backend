@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 class Order < ApplicationRecord
   belongs_to :user
   has_many :order_items, dependent: :destroy
 
-  validates :total_cents, presence: true, numericality: { greater_than: 0}
+  validates :total_cents, presence: true, numericality: { greater_than: 0 }
   validates :currency, presence: true, inclusion: { in: %w[CZK EUR] }
 
   enum :status, {

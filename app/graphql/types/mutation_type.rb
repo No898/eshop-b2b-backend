@@ -6,7 +6,7 @@ module Types
     field :login_user, mutation: Mutations::LoginUser
     field :register_user, mutation: Mutations::RegisterUser
 
-    # Order mutations  
+    # Order mutations
     field :create_order, mutation: Mutations::CreateOrder
   end
 end
