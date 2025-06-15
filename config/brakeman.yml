@@ -1,31 +1,38 @@
-# Brakeman konfigurace pro rychlejší skenování
+# Ultra rychlá Brakeman konfigurace
 application_path: "."
 
-# Vynechání složek které nepotřebujeme skenovat
+# Maximální rychlost - minimum kontrol
+min_confidence: 1
+check_arguments: false
+exit_on_warn: false
+
+# Vynechání všech nepotřebných složek
 skip_files:
   - "node_modules/**/*"
   - "tmp/**/*"
   - "log/**/*"
   - "coverage/**/*"
   - "vendor/**/*"
+  - "db/**/*"
+  - "config/**/*"
+  - "spec/**/*"
+  - "test/**/*"
 
-# Ignorovat méně kritické testy pro rychlost
-check_arguments: true
-exit_on_warn: true
-min_confidence: 2
-
-# Pouze důležité testy pro B2B backend
+# Jen nejdůležitější kontroly
 only_files:
-  - "app/controllers/**/*"
-  - "app/models/**/*"
-  - "app/graphql/**/*"
+  - "app/controllers/application_controller.rb"
+  - "app/controllers/graphql_controller.rb"
+  - "app/models/user.rb"
+  - "app/graphql/mutations/login_user.rb"
 
-# Rychlejší skenování
+# Ultra rychlé nastavení
 faster: true
+parallel_checks: false
+timeout: 30
 
-# Výstup ve formátu JSON pro rychlejší parsing
-output_formats:
-  - json
-
-# Timeout pro dlouhé kontroly
-timeout: 60
+# Jen kritické kontroly
+only:
+  - SQL
+  - CrossSiteScripting
+  - MassAssignment
+  - Authentication

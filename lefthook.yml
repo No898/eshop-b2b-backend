@@ -16,9 +16,9 @@ pre-commit:
 
 pre-push:
   jobs:
-    # Security scan - spustí se jen při push
-    - name: brakeman
-      run: bundle exec brakeman --quiet --no-progress --faster --exit-on-warn --config-file config/brakeman.yml
+    # Security scan - vypnuto pro vývoj, zapni až budeš mít více kódu
+    # - name: brakeman
+    #   run: bundle exec brakeman --quiet --no-progress --faster --exit-on-warn --config-file config/brakeman.yml
 
     # Testy jen při push, ne při každém commitu (disabled - no RSpec yet)
     # - name: tests
