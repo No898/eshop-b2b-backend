@@ -51,7 +51,10 @@ module LooteaB2bBackend
     config.api_only = true
 
     # SECURITY: Add security headers middleware
-    config.middleware.use Rack::Attack if Rails.env.production?
+    if Rails.env.production?
+      require 'rack/attack'
+      config.middleware.use Rack::Attack
+    end
 
     # GRAPHQL SECURITY CONFIGURATION
     # Configurable limits for different environments

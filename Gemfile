@@ -15,6 +15,9 @@ gem 'pundit'
 gem 'graphiql-rails', group: :development
 gem 'graphql'
 
+# Security
+gem 'rack-attack'
+
 # Background jobs
 gem 'sidekiq'
 
