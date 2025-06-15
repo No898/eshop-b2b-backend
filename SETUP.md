@@ -1,4 +1,4 @@
-# 🚀 Lootea B2B Backend - PC Setup
+# 🚀 Lootea B2B Backend - Setup
 
 Rychlá příručka pro spuštění projektu na **Windows PC**.
 

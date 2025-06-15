@@ -457,6 +457,52 @@ function CreateOrderForm() {
 }
 ```
 
+### Platba objednávky
+```typescript
+const PAY_ORDER = gql`
+  mutation PayOrder($orderId: ID!) {
+    payOrder(input: {
+      orderId: $orderId
+    }) {
+      success
+      paymentUrl
+      paymentId
+      errorCode
+      errors
+    }
+  }
+`;
+
+function PaymentButton({ orderId }) {
+  const [payOrder, { loading }] = useMutation(PAY_ORDER);
+
+  const handlePayment = async () => {
+    try {
+      const { data } = await payOrder({
+        variables: { orderId }
+      });
+
+      if (data.payOrder.success) {
+        // Přesměruj na platební bránu
+        window.location.href = data.payOrder.paymentUrl;
+      } else {
+        // Zobraz chybu podle error kódu
+        const errorMessage = getErrorMessage(data.payOrder.errorCode);
+        alert(errorMessage);
+      }
+    } catch (err) {
+      alert('Chyba při zpracování platby');
+    }
+  };
+
+  return (
+    <button onClick={handlePayment} disabled={loading}>
+      {loading ? 'Připravujeme platbu...' : 'Zaplatit'}
+    </button>
+  );
+}
+```
+
 ---
 
 ## ❌ Error Handling
@@ -523,11 +569,10 @@ const PAY_ORDER = gql`
     payOrder(input: {
       orderId: $orderId
     }) {
-      payment {
-        id
-        status
-        paymentUrl
-      }
+      success
+      paymentUrl
+      paymentId
+      errorCode
       errors
     }
   }
@@ -542,14 +587,12 @@ function PaymentButton({ orderId }) {
         variables: { orderId }
       });
 
-      if (data.payOrder.errors.length === 0) {
+      if (data.payOrder.success) {
         // Přesměrujeme na platební bránu
-        window.location.href = data.payOrder.payment.paymentUrl;
+        window.location.href = data.payOrder.paymentUrl;
       } else {
-        // Zobrazíme lokalizovanou chybu
-        const errorMessage = data.payOrder.errors
-          .map(error => getErrorMessage(error))
-          .join(', ');
+        // Zobrazíme lokalizovanou chybu podle error kódu
+        const errorMessage = getErrorMessage(data.payOrder.errorCode);
         alert(errorMessage);
       }
     } catch (err) {
@@ -570,25 +613,23 @@ function PaymentButton({ orderId }) {
 // Doporučuji použít react-hot-toast
 import toast from 'react-hot-toast';
 
-const handlePaymentError = (errors: string[]) => {
-  errors.forEach(errorCode => {
-    const message = getErrorMessage(errorCode);
+const handlePaymentError = (errorCode: string) => {
+  const message = getErrorMessage(errorCode);
 
-    // Různé typy toastů podle chyby
-    if (errorCode === 'UNAUTHORIZED') {
-      toast.error(message, {
-        duration: 4000,
-        icon: '🔒',
-      });
-    } else if (errorCode === 'PAYMENT_ALREADY_EXISTS') {
-      toast.error(message, {
-        duration: 4000,
-        icon: '💳',
-      });
-    } else {
-      toast.error(message);
-    }
-  });
+  // Různé typy toastů podle chyby
+  if (errorCode === 'UNAUTHORIZED') {
+    toast.error(message, {
+      duration: 4000,
+      icon: '🔒',
+    });
+  } else if (errorCode === 'PAYMENT_ALREADY_EXISTS') {
+    toast.error(message, {
+      duration: 4000,
+      icon: '💳',
+    });
+  } else {
+    toast.error(message);
+  }
 };
 ```
 
@@ -825,6 +866,7 @@ const GET_ORDER_STATUS = gql`
     order(id: $id) {
       id
       paymentStatus
+      paymentPending
       paymentCompleted
       paymentFailed
       totalDecimal
@@ -899,8 +941,8 @@ const useTestPayment = (orderId: string) => {
       // 1. Vytvoř platbu
       const { data } = await payOrder({ variables: { orderId } });
 
-      if (data.payOrder.errors.length > 0) {
-        console.error('Chyba při vytváření platby:', data.payOrder.errors);
+      if (!data.payOrder.success) {
+        console.error('Chyba při vytváření platby:', data.payOrder.errorCode);
         return;
       }
 
@@ -978,7 +1020,7 @@ function PaymentButton({ orderId }) {
     try {
       const { data } = await payOrder({ variables: { orderId } });
 
-      if (data.payOrder.errors.length === 0) {
+      if (data.payOrder.success) {
         setIsRedirecting(true);
         // Krátké zpoždění pro UX
         setTimeout(() => {

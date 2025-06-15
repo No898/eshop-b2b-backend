@@ -55,4 +55,3 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 
 ## 📌 Pravidlo
 👉 Každý krok řeším v samostatném chatu, aby byl přehledný a strukturovaný.
-
