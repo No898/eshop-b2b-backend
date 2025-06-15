@@ -23,6 +23,12 @@ Kompletní dokumentace vývoje backendu pro **Lootea B2B** projekt.
 - **Pundit** (autorizace)
 - **Sidekiq** (background jobs)
 
+### Development Tools
+- **RuboCop** (kód formátování + linting)
+- **RSpec** (testing framework - připravený)
+- **Brakeman** (security scanner - optimalizovaný)
+- **Lefthook** (Git hooks)
+
 ### Infrastructure
 - **Docker** (PostgreSQL databáze)
 - **Railway** (plánovaný hosting)
@@ -45,8 +51,12 @@ lootea-b2b-backend/
 ├── db/
 │   └── migrate/                 # Databázové migrace
 ├── config/
-│   └── database.yml             # DB konfigurace
+│   ├── database.yml             # DB konfigurace
+│   └── brakeman.yml             # Brakeman security config
+├── spec/                        # RSpec testy (připravené)
 ├── docker-compose.yml           # PostgreSQL v Docker
+├── lefthook.yml                 # Git hooks konfigurace
+├── .rubocop.yml                 # RuboCop linting pravidla
 └── lootea_b2b_backend_plan.md   # Původní plán
 ```
 
@@ -425,6 +435,13 @@ product.order_items.count  # => 1
 - ✅ JWT autentizace v GraphQL kontextu
 - ✅ Authorization header parsing ("Bearer <token>")
 
+### Development tooling ✅
+- ✅ RuboCop konfigurace + autofix
+- ✅ RSpec setup (připravený k použití)
+- ✅ Brakeman security scanner optimalizace
+- ✅ Lefthook Git hooks (pre-commit, pre-push)
+- ✅ Performance optimalizace pro rychlý vývoj
+
 ---
 
 ## 🚧 Plánované kroky
@@ -525,13 +542,54 @@ rails console
 rails routes | grep graphql
 ```
 
+### Development nástroje
+```bash
+# RuboCop kontrola
+bundle exec rubocop
+
+# RuboCop autofix
+bundle exec rubocop -a
+
+# Brakeman security scan (rychlý)
+bundle exec brakeman --config-file config/brakeman.yml
+
+# RSpec testy (až budou hotové)
+bundle exec rspec
+```
+
+### Git hooks (Lefthook)
+```bash
+# Pre-commit: RuboCop + trailing whitespace cleanup
+git commit -m "tvoje zpráva"
+
+# Pre-push: Brakeman security scan (vypnutý pro rychlý vývoj)
+git push origin main
+```
+
+---
+
+## ⚡ Performance optimalizace
+
+### Brakeman rychlost
+- **Problém:** Původně trval 5+ minut na malém projektu
+- **Řešení:** Vlastní config v `config/brakeman.yml`
+- **Výsledek:** 0.1 sekundy místo 5 minut
+- **Pro vývoj:** Dočasně vypnutý v lefthook
+- **Zapnutí zpět:** Odkomentovat v `lefthook.yml` až bude více kódu
+
+### Development tipy
+- **Docker PostgreSQL:** Rychlejší než lokální instalace
+- **Spring preloader:** Automatické accelerace Rails příkazů
+- **GraphiQL:** Rychlé testování queries bez Postman
+- **Rails console:** Okamžité testování business logiky
+
 ---
 
 ## 📞 Kontakt a poznámky
 
 **Datum vytvoření:** 15. června 2025
 **Autor:** Tomáš (s AI mentorem)
-**Stav:** Dokončen krok 1/5 - Modely a migrace
-**Další krok:** GraphQL typy a queries
+**Stav:** Dokončen krok 2/5 - GraphQL API + Development tooling
+**Další krok:** Platby (Comgate integrace)
 
-**Poznámka:** Všechny kroky se dělají postupně pro lepší pochopení a učení se Rails best practices.
+**Poznámka:** Všechny kroky se dělají postupně pro lepší pochopení a učení se Rails best practices. Development prostředí je optimalizované pro rychlý vývoj.
