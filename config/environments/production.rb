@@ -8,10 +8,6 @@ Rails.application.configure do
   # Use environment variables for secrets instead of credentials
   config.secret_key_base = ENV.fetch('SECRET_KEY_BASE', nil)
 
-  # Skip loading encrypted credentials in production
-  config.credentials.content_path = nil
-  config.credentials.key_path = nil
-
   # Code is not reloaded between requests.
   config.enable_reloading = false
 

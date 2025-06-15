@@ -10,7 +10,7 @@
 # Many of these configuration options can be set straight in your model.
 Devise.setup do |config|
   config.jwt do |jwt|
-    jwt.secret = ENV.fetch('DEVISE_JWT_SECRET_KEY', nil)
+    jwt.secret = ENV.fetch('DEVISE_JWT_SECRET_KEY')
   end
 
   # The secret key used by Devise. Devise uses this key to generate
@@ -18,7 +18,7 @@ Devise.setup do |config|
   # confirmation, reset password and unlock tokens in the database.
   # Devise will use the `secret_key_base` as its `secret_key`
   # by default. You can change it below and use your own secret key.
-  # config.secret_key = '5857f7d360f181571d1607c07913989edc62e3780f05056926b4555261349418e916e6083e428295c21f35f6cbe85a0176f8e103fd1636841ac29f1900dcceb1'
+  # config.secret_key = '5857f7d360f181571d1607c0791398239edc62e3780f05056926b4555261349418e916e6083e428295c21f35f6cbe85a0176f8e103fd1636841ac29f1900dcceb1'
 
   # ==> Controller configuration
   # Configure the parent class to the devise controllers.
