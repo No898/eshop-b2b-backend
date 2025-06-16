@@ -28,10 +28,7 @@ module GraphqlSecurityConfig
     default_max_page_size(production_or_development_config(:max_page_size))
 
     # SECURITY: Query timeout protection
-    query_execution_strategy(
-      GraphQL::Execution::Interpreter,
-      validate: Rails.env.development?
-    )
+    query_execution_strategy(GraphQL::Execution::Interpreter)
   end
 
   class_methods do
