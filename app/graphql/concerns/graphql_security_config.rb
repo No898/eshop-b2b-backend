@@ -18,30 +18,8 @@ module GraphqlSecurityConfig
     max_query_string_tokens(production_or_development_config(:max_query_tokens))
 
     # SECURITY: Enable query analysis for monitoring
-    query_analyzer(GraphQL::Analysis::QueryComplexity.new do |_query, complexity_value|
-      warning_threshold = if Rails.env.production?
-                            Rails.application.config.graphql.complexity_warning_threshold_production
-                          else
-                            Rails.application.config.graphql.complexity_warning_threshold_development
-                          end
-
-      if complexity_value > warning_threshold
-        message = "High complexity GraphQL query detected: #{complexity_value} (threshold: #{warning_threshold})"
-        Rails.logger.warn(message)
-      end
-    end)
-
-    query_analyzer(GraphQL::Analysis::QueryDepth.new do |_query, depth_value|
-      warning_threshold = if Rails.env.production?
-                            Rails.application.config.graphql.depth_warning_threshold_production
-                          else
-                            Rails.application.config.graphql.depth_warning_threshold_development
-                          end
-
-      if depth_value > warning_threshold
-        Rails.logger.warn("Deep GraphQL query detected: #{depth_value} (threshold: #{warning_threshold})")
-      end
-    end)
+    query_analyzer(Analyzers::CustomQueryComplexity)
+    query_analyzer(Analyzers::CustomQueryDepth)
 
     # SECURITY: Stop validating when it encounters too many errors
     validate_max_errors 100
