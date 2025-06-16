@@ -73,16 +73,14 @@ jobs:
           RAILS_ENV: test
         run: bin/rails db:prepare
 
+      - name: Generate RSpec binstub
+        run: bundle binstubs rspec-core
+
       - name: Run RSpec tests
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
           RAILS_ENV: test
-        run: bin/rspec --format progress --format RspecJunitFormatter --out tmp/rspec_results.xml
+        run: bin/rspec --format progress --format documentation
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rspec-results
-          path: tmp/rspec_results.xml
+
 

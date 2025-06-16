@@ -50,4 +50,5 @@ gem 'tzinfo-data', platforms: %i[windows jruby]
 
 # Thruster: Zbytečné pro tvůj use case (řeší caching assets, ty žádné assets nemáš)
 # gem "thruster", require: false
+gem 'rspec_junit_formatter', group: :test
 gem 'rspec-rails', group: %i[development test]
