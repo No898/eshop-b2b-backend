@@ -6,7 +6,7 @@ Ruby on Rails 8.0.2 API-only application with GraphQL for B2B tea e-commerce pla
 
 This backend API is built for Czech junior frontend developers, therefore:
 - **GraphQL schema descriptions** are in Czech for better understanding
-- **Frontend documentation** ([FRONTEND_API_GUIDE.md](FRONTEND_API_GUIDE.md)) is in Czech
+- **Frontend documentation** ([FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)) is in Czech
 - **Code comments and error messages** are in English (industry standard)
 - **This README** is in English for international developers
 
@@ -140,9 +140,9 @@ curl -X POST http://localhost:3000/webhooks/comgate \
 
 ## 📖 Documentation
 
-- **[Frontend API Guide](FRONTEND_API_GUIDE.md)** - Complete guide for frontend developers (in Czech)
+- **[Frontend Guide](FRONTEND_GUIDE.md)** - Complete guide for frontend developers with UI tips (in Czech)
 - **GraphQL Schema** - Available at `/graphiql` in development
-- **Webhook Documentation** - Included in Frontend API Guide
+- **Webhook Documentation** - Included in Frontend Guide
 
 ## 🔄 Payment Flow
 

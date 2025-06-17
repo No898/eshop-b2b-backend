@@ -1,4 +1,3 @@
-
 # 🚀 Lootea B2B Backend – Plán vývoje
 
 Tento dokument definuje plán vývoje backendu pro projekt **Lootea B2B**, postavený na Ruby on Rails (API-only) + GraphQL + Devise JWT.
@@ -61,48 +60,38 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 
 ## 🚀 Co můžeme ještě udělat
 
-### 🧪 **1️⃣ Testování** (RSpec setup hotov, chybí konkrétní testy)
+### 🎯 **PRIORITY 1 - Základní B2B funkce**
+- **Adresní kniha** (doručovací vs fakturační adresy)
+- **Inventory management** (jednoduchý - jen quantity na product)
+- **Bulk pricing** (1ks vs 1bal vs 10bal struktura)
+- **Produktové varianty** (popping balls s různými příchutěmi)
+
+### 🧪 **PRIORITY 2 - Testování** (RSpec setup hotov, chybí konkrétní testy)
 - **Model testy** (validace, asociace, metody, edge cases)
 - **GraphQL testy** (mutations, queries, error handling)
 - **Controller testy** (webhooks, autentizace, security)
 - **Integration testy** (celé user flow: registrace → objednávka → platba)
 - **Security testy** (rate limiting, introspection blocking, CORS)
-- **Performance testy** (load testing, memory usage)
 
-### 📊 **2️⃣ Application Monitoring** (Logging už máme skvělé)
+### 📊 **PRIORITY 3 - Monitoring & Performance**
 - **APM systém** (New Relic, Datadog, nebo Skylight pro Rails)
 - **Error tracking** (Sentry, Rollbar, nebo Bugsnag)
-- **Metrics dashboard** (vlastní nebo přes APM)
-- **Alerting** (při chybách, high load, down service)
-
-### ⚡ **3️⃣ Performance Optimalizace**
 - **Database indexy** (na často dotazované sloupce)
 - **Query optimization** (N+1 problém, batch loading)
-- **Connection pooling** (optimalizace pro vysoký traffic)
 - **Background job monitoring** (Sidekiq Web UI, metriky)
-- **Redis optimalizace** (memory usage, persistence)
 
-### 🎯 **4️⃣ API Pokročilé funkce**
-- **API versioning** (GraphQL schema versioning)
-- **GraphQL subscriptions** (real-time updates přes WebSocket)
-- **Cloud storage integrace** (AWS S3 ready pro produkci)
-- **Bulk operations** (hromadné vytváření/úpravy záznamů)
-- **Advanced filtering & sorting** (komplexní vyhledávání)
-- **GraphQL Playground** (interaktivní API dokumentace)
-
-### 🌐 **5️⃣ Frontend Integrace** (CORS už máme)
-- **GraphQL schema export** (automatické generování pro frontend)
-- **API response caching** (Redis cache pro často dotazovaná data)
-- **Real-time notifications** (WebSocket/Cable pro live updates)
-- **API rate limiting per user** (individuální limity)
-
-### 💼 **6️⃣ Business Features**
+### 🎯 **BUDOUCÍ PLÁN - Pokročilé funkce**
 - **Email systém** (ActionMailer templates, transactional emails)
 - **Admin panel** (administrace uživatelů, objednávek, produktů)
-- **Inventory management** (správa skladových zásob)
-- **Discount/coupon systém** (slevové kódy, akce)
+- **GraphQL subscriptions** (real-time updates)
+- **Advanced filtering & sorting** (komplexní vyhledávání)
+- **Bulk operations** (hromadné vytváření/úpravy záznamů)
+
+### 📈 **POZDĚJI - Analytics & Business Intelligence**
 - **Reporting & Analytics** (dashboardy, exporty, statistiky)
-- **Multi-tenant support** (pokud bude potřeba více klientů)
+- **Zákaznická segmentace** (VIP, bulk buyers, atd.)
+- **Prodejní reporty** (top produkty, trendy, předpovědi)
+- **Business metrics** (conversion rates, AOV, retention)
 
 ---
 
@@ -117,16 +106,22 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - **Background job infrastruktura** - Sidekiq + Solid Queue pro Rails 8
 - **Multi-database architektura** - oddělené DB pro cache, queue, cable
 
-### 🔄 **Aktuální priority**
-- **Kompletní test coverage** - RSpec setup hotov, chybí konkrétní testy
+### 🔄 **Aktuální priority (PRIORITY 1)**
+- **Adresní kniha** - doručovací vs fakturační adresy pro B2B
+- **Inventory management** - jednoduchý tracking zásob (quantity field)
+- **Bulk pricing** - cenová struktura 1ks vs 1bal vs 10bal
+- **Produktové varianty** - popping balls s různými příchutěmi
+
+### 🎯 **Střednědobé cíle**
+- **Test coverage** - RSpec setup hotov, chybí konkrétní testy
 - **Production monitoring** - APM systém a error tracking
 - **Performance optimalizace** - database indexy a query optimization
 - **Email systém** - ActionMailer templates pro transactional emails
 
-### 🎯 **Dlouhodobé cíle**
-- **Advanced API features** - subscriptions, bulk operations, versioning
-- **Business features** - admin panel, inventory, discount systém
-- **Analytics & reporting** - dashboardy a business intelligence
+### 📈 **Dlouhodobé cíle**
+- **Admin panel** - administrace uživatelů, objednávek, produktů
+- **Advanced API features** - subscriptions, bulk operations
+- **Analytics & reporting** - dashboardy a business intelligence (až bude prodávat)
 
 ---
 

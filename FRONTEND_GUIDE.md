@@ -1,6 +1,6 @@
-# 🎯 Frontend API Průvodce - Jednoduchý návod pro začátečníky
+# 🎯 Frontend Průvodce - Jednoduchý návod pro začátečníky
 
-Kompletní návod jak používat naše GraphQL API ve frontend aplikaci. Každý příklad je ready-to-use!
+Kompletní návod jak používat naše GraphQL API ve frontend aplikaci + UI tipy pro B2B eshop. Každý příklad je ready-to-use!
 
 ---
 
@@ -22,8 +22,8 @@ Kompletní návod jak používat naše GraphQL API ve frontend aplikaci. Každý
 ### ⚠️ Důležité - URL konfigurace
 **Localhost nebude fungovat!** Pokud:
 - Frontend běží na jiné adrese než backend
-- Backend je nasazený na Railway/Heroku
-- Frontend je nasazený na Vercel/Netlify
+- Backend je nasazený na Railway
+- Frontend je nasazený na Vercel
 
 Musíš použít **veřejnou URL** backendu!
 
@@ -134,7 +134,195 @@ function MyApp({ Component, pageProps }) {
 
 ## 🔐 Autentizace
 
-### Registrace nového uživatele
+### ⚠️ **DŮLEŽITÉ - Nepoužívejte next-auth!**
+
+**Pokud máte v package.json `next-auth`, odstraňte ho:**
+```bash
+npm uninstall next-auth
+```
+
+**Proč next-auth nepoužíváme:**
+- ❌ **Duplikace** - backend už má Devise + JWT autentizaci
+- ❌ **Komplikace** - next-auth vytváří vlastní user tabulky
+- ❌ **B2B specifika** - náš backend má company_name, vat_id, role
+- ❌ **GraphQL nekompatibilita** - next-auth je primárně pro REST API
+- ❌ **Zbytečná složitost** - máme funkční JWT systém
+
+**Místo toho používáme:**
+- ✅ **Apollo Client** s JWT tokeny (authLink)
+- ✅ **Zustand store** pro user state management
+- ✅ **Naše GraphQL mutations** (`loginUser`, `registerUser`)
+- ✅ **localStorage** pro persistenci tokenů
+
+### 🔧 **Kompletní autentizační setup**
+
+#### 1. Apollo Client s JWT autentizací
+```typescript
+// lib/apollo-client.ts
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
+
+const httpLink = createHttpLink({
+  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:3000/graphql',
+});
+
+// AuthLink automaticky přidá JWT token do všech requests
+const authLink = setContext((_, { headers }) => {
+  // Získáme token z localStorage (nebo ze Zustand store)
+  const token = localStorage.getItem('authToken');
+
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : "",
+    }
+  }
+});
+
+const client = new ApolloClient({
+  link: authLink.concat(httpLink),
+  cache: new InMemoryCache(),
+  defaultOptions: {
+    watchQuery: {
+      errorPolicy: 'all',
+    },
+    query: {
+      errorPolicy: 'all',
+    }
+  }
+});
+
+export default client;
+```
+
+#### 2. Zustand Auth Store s Apollo integrací
+```typescript
+// stores/auth-store.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import client from '../lib/apollo-client'
+import { LOGIN_USER, REGISTER_USER } from '../mutations/auth'
+
+interface User {
+  id: string
+  email: string
+  companyName?: string
+  vatId?: string
+  role: 'customer' | 'admin'
+}
+
+interface AuthStore {
+  user: User | null
+  token: string | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; errors: string[] }>
+  register: (data: RegisterData) => Promise<{ success: boolean; errors: string[] }>
+  logout: () => void
+  setUser: (user: User, token: string) => void
+}
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+
+      login: async (email, password) => {
+        set({ isLoading: true })
+
+        try {
+          const { data } = await client.mutate({
+            mutation: LOGIN_USER,
+            variables: { email, password }
+          })
+
+          if (data.loginUser.errors.length === 0) {
+            const { user, token } = data.loginUser
+
+            // Uložíme do store i localStorage
+            localStorage.setItem('authToken', token)
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false
+            })
+
+            return { success: true, errors: [] }
+          } else {
+            set({ isLoading: false })
+            return { success: false, errors: data.loginUser.errors }
+          }
+        } catch (error) {
+          set({ isLoading: false })
+          return { success: false, errors: ['Chyba při přihlašování'] }
+        }
+      },
+
+      register: async (registerData) => {
+        set({ isLoading: true })
+
+        try {
+          const { data } = await client.mutate({
+            mutation: REGISTER_USER,
+            variables: registerData
+          })
+
+          if (data.registerUser.errors.length === 0) {
+            const { user, token } = data.registerUser
+
+            localStorage.setItem('authToken', token)
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false
+            })
+
+            return { success: true, errors: [] }
+          } else {
+            set({ isLoading: false })
+            return { success: false, errors: data.registerUser.errors }
+          }
+        } catch (error) {
+          set({ isLoading: false })
+          return { success: false, errors: ['Chyba při registraci'] }
+        }
+      },
+
+      logout: () => {
+        localStorage.removeItem('authToken')
+        client.clearStore() // Vyčistí Apollo cache
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false
+        })
+      },
+
+      setUser: (user, token) => {
+        localStorage.setItem('authToken', token)
+        set({ user, token, isAuthenticated: true })
+      }
+    }),
+    {
+      name: 'auth-storage',
+      // Neukládáme token do persist storage - jen do localStorage
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated
+      })
+    }
+  )
+)
+```
+
+### 📝 **GraphQL Mutations pro autentizaci**
+
+#### Registrace nového uživatele
 ```typescript
 // mutations/auth.ts
 import { gql } from '@apollo/client';
@@ -208,74 +396,262 @@ function RegisterForm() {
 }
 ```
 
-### Přihlášení
+### 🎨 **Moderní komponenty s Shadcn UI**
+
+#### Login komponenta
 ```typescript
-const LOGIN_USER = gql`
-  mutation LoginUser($email: String!, $password: String!) {
-    loginUser(
-      email: $email
-      password: $password
-    ) {
-      user {
-        id
-        email
-        role
-        companyName
-      }
-      token
-      errors
+// components/auth/LoginForm.tsx
+import { useState } from 'react'
+import { useRouter } from 'next/router'
+import { useAuthStore } from '@/stores/auth-store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useToast } from '@/components/ui/use-toast'
+
+export function LoginForm() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const { login, isLoading } = useAuthStore()
+  const { toast } = useToast()
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const result = await login(email, password)
+
+    if (result.success) {
+      toast({
+        title: "Úspěch",
+        description: "Byli jste úspěšně přihlášeni",
+      })
+      router.push('/dashboard')
+    } else {
+      toast({
+        title: "Chyba",
+        description: result.errors.join(', '),
+        variant: "destructive",
+      })
     }
   }
-`;
-
-// Jednoduchá login komponenta
-function LoginForm() {
-  const [loginUser, { loading }] = useMutation(LOGIN_USER);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-
-    try {
-      const { data } = await loginUser({
-        variables: { email, password }
-      });
-
-      if (data.loginUser.errors.length === 0) {
-        // Uložíme token
-        localStorage.setItem('authToken', data.loginUser.token);
-        window.location.href = '/dashboard';
-      } else {
-        alert('Chyba: ' + data.loginUser.errors.join(', '));
-      }
-    } catch (err) {
-      alert('Chyba při přihlašování');
-    }
-  };
 
   return (
-    <form onSubmit={handleLogin}>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        required
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Heslo"
-        required
-      />
-      <button type="submit" disabled={loading}>
-        {loading ? 'Přihlašujeme...' : 'Přihlásit'}
-      </button>
-    </form>
-  );
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Přihlášení</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vas@email.cz"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Heslo</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Vaše heslo"
+              required
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Přihlašujeme...' : 'Přihlásit se'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
 }
+```
+
+#### Register komponenta
+```typescript
+// components/auth/RegisterForm.tsx
+import { useState } from 'react'
+import { useRouter } from 'next/router'
+import { useAuthStore } from '@/stores/auth-store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useToast } from '@/components/ui/use-toast'
+
+export function RegisterForm() {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    passwordConfirmation: '',
+    companyName: '',
+    vatId: ''
+  })
+
+  const { register, isLoading } = useAuthStore()
+  const { toast } = useToast()
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const result = await register(formData)
+
+    if (result.success) {
+      toast({
+        title: "Úspěch",
+        description: "Účet byl úspěšně vytvořen",
+      })
+      router.push('/dashboard')
+    } else {
+      toast({
+        title: "Chyba",
+        description: result.errors.join(', '),
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value }))
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Registrace</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email *</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange('email')}
+              placeholder="vas@email.cz"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Heslo *</Label>
+            <Input
+              id="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange('password')}
+              placeholder="Minimálně 6 znaků"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="passwordConfirmation">Potvrzení hesla *</Label>
+            <Input
+              id="passwordConfirmation"
+              type="password"
+              value={formData.passwordConfirmation}
+              onChange={handleChange('passwordConfirmation')}
+              placeholder="Zopakujte heslo"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyName">Název firmy</Label>
+            <Input
+              id="companyName"
+              value={formData.companyName}
+              onChange={handleChange('companyName')}
+              placeholder="Vaše firma s.r.o."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vatId">IČO/DIČ</Label>
+            <Input
+              id="vatId"
+              value={formData.vatId}
+              onChange={handleChange('vatId')}
+              placeholder="12345678"
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Registrujeme...' : 'Registrovat se'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
+#### Protected Route komponenta
+```typescript
+// components/auth/ProtectedRoute.tsx
+import { useAuthStore } from '@/stores/auth-store'
+import { useRouter } from 'next/router'
+import { useEffect } from 'react'
+
+interface ProtectedRouteProps {
+  children: React.ReactNode
+}
+
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isAuthenticated, user } = useAuthStore()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login')
+    }
+  }, [isAuthenticated, router])
+
+  if (!isAuthenticated) {
+    return <div>Přesměrováváme...</div>
+  }
+
+  return <>{children}</>
+}
+```
+
+#### Logout tlačítko
+```typescript
+// components/auth/LogoutButton.tsx
+import { useAuthStore } from '@/stores/auth-store'
+import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/router'
+import { LogOut } from 'lucide-react'
+
+export function LogoutButton() {
+  const { logout } = useAuthStore()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
+
+  return (
+    <Button variant="ghost" onClick={handleLogout}>
+      <LogOut className="w-4 h-4 mr-2" />
+      Odhlásit se
+    </Button>
+  )
+}
+```
 ```
 
 ---
@@ -1598,7 +1974,7 @@ curl -X POST -H "Content-Type: application/json" \
 # 2. Aktualizuj .env.local
 NEXT_PUBLIC_GRAPHQL_URL=https://your-app-name.railway.app/graphql
 
-# 3. Nebo přidat do Vercel/Netlify environment variables
+# 3. Nebo přidat do Vercel environment variables
 ```
 
 ### CORS nastavení
@@ -1635,3 +2011,557 @@ fetch('https://your-app-name.railway.app/graphql', {
 ```
 
 **Pamatuj si:** Každý error má svoje řešení. Čti chybové hlášky pozorně a používej debuggovací nástroje! 🔧
+
+---
+
+## 🎨 UI Tipy pro B2B Eshop
+
+### Zásady B2B UI Design
+B2B zákazníci mají jiné potřeby než B2C - preferují **funkcionalitu nad estetikou**:
+
+#### 🏢 **Přehlednost nad krásou**
+- Méně animací, více informací
+- Jasná navigace s breadcrumb
+- Konzistentní layout napříč stránkami
+- Dobře čitelné fonty (velikost 14px+)
+
+#### ⚡ **Rychlost nad designem**
+- Hromadné akce (checkboxy pro vícenásobný výběr)
+- Klávesové zkratky (Enter pro rychlé přidání)
+- Shortcuts pro zkušené uživatele
+- Minimální počet kliků k cíli
+
+#### 📊 **Datová orientace**
+- Tabulkové zobrazení s řazením
+- Export do Excel/CSV
+- Pokročilé filtry a vyhledávání
+- Aggregate informace (celková cena, počet)
+
+### Specifické UI prvky pro B2B
+
+#### 🛒 **Quick Order Panel - Shadcn UI**
+```tsx
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useCartStore } from "@/stores/cart-store"
+
+// Rychlé objednávání podle SKU/kódu
+function QuickOrderPanel() {
+  const [sku, setSku] = useState("")
+  const [quantity, setQuantity] = useState(1)
+  const addToCart = useCartStore((state) => state.addToCart)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Rychlé objednání</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2">
+          <Input
+            placeholder="SKU nebo kód produktu"
+            value={sku}
+            onChange={(e) => setSku(e.target.value)}
+            className="flex-1"
+          />
+          <Input
+            type="number"
+            placeholder="Množství"
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            className="w-20"
+          />
+          <Button onClick={() => addToCart(sku, quantity)}>
+            Přidat
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+#### 📋 **Bulk Actions Bar - Shadcn UI**
+```tsx
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ShoppingCart, Download, Trash2 } from "lucide-react"
+
+// Pro hromadné operace
+function BulkActionsBar({ selectedItems }) {
+  return (
+    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {selectedItems.length} položek vybráno
+          </Badge>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            Přidat do košíku
+          </Button>
+          <Button variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Exportovat
+          </Button>
+          <Button variant="outline" size="sm">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Odstranit
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+#### 🔍 **Advanced Search Panel**
+```tsx
+// Pokročilé vyhledávání
+function AdvancedSearchPanel() {
+  return (
+    <div className="border rounded-lg p-4 space-y-4">
+      <h3>Pokročilé vyhledávání</h3>
+      <div className="grid grid-cols-2 gap-4">
+        <select className="form-select">
+          <option>Všechny kategorie</option>
+          <option>Popping Balls</option>
+          <option>Syrups</option>
+        </select>
+        <input placeholder="Název produktu" />
+        <input placeholder="SKU" />
+        <select className="form-select">
+          <option>Všechny ceny</option>
+          <option>0-100 Kč</option>
+          <option>100-500 Kč</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+```
+
+#### 📦 **Product Bulk Pricing Display - Shadcn UI**
+```tsx
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+
+// Zobrazení bulk cen
+function BulkPricingTable({ product }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Objemové slevy</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Množství</TableHead>
+              <TableHead>Jednotka</TableHead>
+              <TableHead>Cena za kus</TableHead>
+              <TableHead>Úspora</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>1 ks</TableCell>
+              <TableCell>Kus</TableCell>
+              <TableCell className="font-medium">25 Kč</TableCell>
+              <TableCell>-</TableCell>
+            </TableRow>
+            <TableRow className="bg-yellow-50/50">
+              <TableCell>1 bal (24 ks)</TableCell>
+              <TableCell>Balení</TableCell>
+              <TableCell className="font-medium">22 Kč</TableCell>
+              <TableCell>
+                <Badge variant="secondary">12% sleva</Badge>
+              </TableCell>
+            </TableRow>
+            <TableRow className="bg-green-50/50">
+              <TableCell>10 bal (240 ks)</TableCell>
+              <TableCell>Karton</TableCell>
+              <TableCell className="font-medium">19 Kč</TableCell>
+              <TableCell>
+                <Badge variant="default">24% sleva</Badge>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+#### 📊 **Order Summary Sidebar**
+```tsx
+// Přehledné shrnutí objednávky
+function OrderSummarySidebar({ cart }) {
+  return (
+    <div className="bg-gray-50 p-4 rounded-lg sticky top-4">
+      <h3>Shrnutí objednávky</h3>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span>Produkty ({cart.itemCount})</span>
+          <span>{cart.subtotal} Kč</span>
+        </div>
+        <div className="flex justify-between">
+          <span>DPH (21%)</span>
+          <span>{cart.vat} Kč</span>
+        </div>
+        <div className="flex justify-between font-bold border-t pt-2">
+          <span>Celkem</span>
+          <span>{cart.total} Kč</span>
+        </div>
+      </div>
+      <button className="w-full bg-green-600 text-white py-3 mt-4 rounded">
+        Objednat
+      </button>
+    </div>
+  );
+}
+```
+
+### UX Best Practices pro B2B
+
+#### 💡 **Keyboard Navigation**
+- Tab indexy pro rychlou navigaci
+- Enter pro potvrzení
+- Escape pro zavření dialogů
+- Ctrl+S pro rychlé uložení
+
+#### 📱 **Responsive ale desktop-first**
+- Optimalizuj pro desktop (hlavní použití)
+- Tablet jako secondary
+- Mobile jen pro urgentní situace
+
+#### 🔄 **Loading States**
+- Skeleton loading pro tabulky
+- Progress bar pro dlouhé operace
+- Disable buttons během loading
+
+#### ⚠️ **Error Handling**
+- Konkrétní chybové hlášky
+- Možnost retry
+- Contact info pro technickou podporu
+
+### Tech Stack pro B2B Frontend
+
+#### 🎨 **UI Framework - Shadcn UI**
+Shadcn UI je ideální pro B2B - čisté, přístupné, profesionální komponenty.
+
+```bash
+# Shadcn UI komponenty pro B2B eshop
+npx shadcn-ui@latest add button
+npx shadcn-ui@latest add input
+npx shadcn-ui@latest add table
+npx shadcn-ui@latest add form
+npx shadcn-ui@latest add select
+npx shadcn-ui@latest add dialog
+npx shadcn-ui@latest add badge
+npx shadcn-ui@latest add card
+npx shadcn-ui@latest add tabs
+npx shadcn-ui@latest add dropdown-menu
+npx shadcn-ui@latest add checkbox
+npx shadcn-ui@latest add toast
+```
+
+#### 🗂️ **State Management - Zustand**
+```bash
+# Zustand pro state management
+npm install zustand
+
+# Pro formuláře (kompatibilní se Shadcn)
+npm install react-hook-form @hookform/resolvers zod
+
+# Pro data tables
+npm install @tanstack/react-table
+
+# Pro export do Excel
+npm install xlsx
+```
+
+### 🗂️ Zustand Stores pro B2B Eshop
+
+#### 🛒 **Cart Store**
+```tsx
+// stores/cart-store.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  quantity: number
+  unit_type: 'piece' | 'box_1' | 'box_10'
+}
+
+interface CartStore {
+  items: CartItem[]
+  addToCart: (productId: string, quantity: number, unitType?: string) => void
+  removeFromCart: (productId: string) => void
+  updateQuantity: (productId: string, quantity: number) => void
+  clearCart: () => void
+  getTotalPrice: () => number
+  getTotalItems: () => number
+}
+
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+
+      addToCart: (productId, quantity, unitType = 'piece') => {
+        set((state) => {
+          const existingItem = state.items.find(item =>
+            item.id === productId && item.unit_type === unitType
+          )
+
+          if (existingItem) {
+            return {
+              items: state.items.map(item =>
+                item.id === productId && item.unit_type === unitType
+                  ? { ...item, quantity: item.quantity + quantity }
+                  : item
+              )
+            }
+          }
+
+          // Zde by bylo volání API pro získání detailů produktu
+          return {
+            items: [...state.items, {
+              id: productId,
+              name: 'Product Name', // z API
+              price: 100, // z API podle unitType
+              quantity,
+              unit_type: unitType as any
+            }]
+          }
+        })
+      },
+
+      removeFromCart: (productId) => {
+        set((state) => ({
+          items: state.items.filter(item => item.id !== productId)
+        }))
+      },
+
+      updateQuantity: (productId, quantity) => {
+        set((state) => ({
+          items: state.items.map(item =>
+            item.id === productId
+              ? { ...item, quantity }
+              : item
+          )
+        }))
+      },
+
+      clearCart: () => set({ items: [] }),
+
+      getTotalPrice: () => {
+        return get().items.reduce((total, item) =>
+          total + (item.price * item.quantity), 0
+        )
+      },
+
+      getTotalItems: () => {
+        return get().items.reduce((total, item) => total + item.quantity, 0)
+      }
+    }),
+    {
+      name: 'cart-storage'
+    }
+  )
+)
+```
+
+#### 👤 **Auth Store**
+```tsx
+// stores/auth-store.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface User {
+  id: string
+  email: string
+  companyName?: string
+  vatId?: string
+  role: 'customer' | 'admin'
+}
+
+interface AuthStore {
+  user: User | null
+  token: string | null
+  isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  setUser: (user: User, token: string) => void
+}
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+
+      login: async (email, password) => {
+        // GraphQL mutation zde
+        const response = await fetch('/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              mutation LoginUser($email: String!, $password: String!) {
+                loginUser(email: $email, password: $password) {
+                  user { id email companyName vatId role }
+                  token
+                  errors
+                }
+              }
+            `,
+            variables: { email, password }
+          })
+        })
+
+        const data = await response.json()
+
+        if (data.data.loginUser.errors.length === 0) {
+          const { user, token } = data.data.loginUser
+
+          // Uložíme do store i localStorage
+          localStorage.setItem('authToken', token)
+          set({
+            user,
+            token,
+            isAuthenticated: true
+          })
+
+          return { success: true, errors: [] }
+        } else {
+          return { success: false, errors: data.data.loginUser.errors }
+        }
+      },
+
+      logout: () => {
+        localStorage.removeItem('authToken')
+        client.clearStore() // Vyčistí Apollo cache
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false
+        })
+      },
+
+      setUser: (user, token) => {
+        localStorage.setItem('authToken', token)
+        set({ user, token, isAuthenticated: true })
+      }
+    }),
+    {
+      name: 'auth-storage'
+    }
+  )
+)
+```
+
+#### 🔄 **UI State Store**
+```tsx
+// stores/ui-store.ts
+import { create } from 'zustand'
+
+interface UIStore {
+  isLoading: boolean
+  selectedProducts: string[]
+  searchQuery: string
+  filters: {
+    category?: string
+    priceRange?: [number, number]
+    inStock?: boolean
+  }
+  setLoading: (loading: boolean) => void
+  toggleProductSelection: (productId: string) => void
+  clearSelection: () => void
+  setSearchQuery: (query: string) => void
+  setFilters: (filters: Partial<UIStore['filters']>) => void
+}
+
+export const useUIStore = create<UIStore>((set) => ({
+  isLoading: false,
+  selectedProducts: [],
+  searchQuery: '',
+  filters: {},
+
+  setLoading: (loading) => set({ isLoading: loading }),
+
+  toggleProductSelection: (productId) => {
+    set((state) => ({
+      selectedProducts: state.selectedProducts.includes(productId)
+        ? state.selectedProducts.filter(id => id !== productId)
+        : [...state.selectedProducts, productId]
+    }))
+  },
+
+  clearSelection: () => set({ selectedProducts: [] }),
+
+  setSearchQuery: (query) => set({ searchQuery: query }),
+
+  setFilters: (newFilters) => {
+    set((state) => ({
+      filters: { ...state.filters, ...newFilters }
+    }))
+  }
+}))
+```
+
+#### 🔥 **Použití v komponentách**
+```tsx
+// components/ProductList.tsx
+import { useCartStore } from '@/stores/cart-store'
+import { useUIStore } from '@/stores/ui-store'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+
+function ProductList({ products }) {
+  const addToCart = useCartStore((state) => state.addToCart)
+  const { selectedProducts, toggleProductSelection } = useUIStore()
+
+  return (
+    <div className="space-y-4">
+      {products.map((product) => (
+        <div key={product.id} className="flex items-center gap-4 p-4 border rounded">
+          <Checkbox
+            checked={selectedProducts.includes(product.id)}
+            onCheckedChange={() => toggleProductSelection(product.id)}
+          />
+          <div className="flex-1">
+            <h3>{product.name}</h3>
+            <p className="text-sm text-gray-600">{product.description}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold">{product.price} Kč</p>
+            <Button onClick={() => addToCart(product.id, 1)}>
+              Přidat do košíku
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+**Pamatuj si:** B2B uživatelé chtějí být efektivní, ne pobaveni. Prioritizuj funkcionalitu! 🚀
