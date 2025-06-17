@@ -31,6 +31,10 @@
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 
+# Ignore encrypted credentials for opensource project
+/config/credentials.yml.enc
+/config/credentials/
+
 # Docker volumes and database data
 postgres_data/
 *.sql

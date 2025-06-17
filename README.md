@@ -18,24 +18,30 @@ This backend API is built for Czech junior frontend developers, therefore:
 - Node.js (for frontend integration)
 
 ### Development Setup
+> **⚠️ Opensource projekt:** Musíte si nakonfigurovat vlastní credentials!
+
 ```bash
 # Clone and setup
 git clone <repo-url>
 cd eshop-b2b-backend
-bundle install
 
-# Database setup
-rails db:create
-rails db:migrate
-rails db:seed
+# Automatická instalace + kontrola credentials
+./bin/setup
+
+# Konfigurace credentials (POVINNÉ!)
+cp config/credentials.example.yml temp_credentials.yml
+# Upravte temp_credentials.yml podle potřeby, pak:
+EDITOR=nano rails credentials:edit
 
 # Start server
-rails server
+bin/rails server
 ```
 
 ### GraphQL Playground
 - **Development**: http://localhost:3000/graphiql
 - **Production**: Disabled for security
+
+**📖 První kroky:** Přečtěte si [`SETUP.md`](SETUP.md) pro detailní instrukce!
 
 ## 🔧 Tech Stack
 
@@ -88,28 +94,44 @@ app/
 
 ## 🔐 Configuration
 
-### Rails Credentials
+> **🚨 Bezpečnostní upozornění:** Tento projekt je opensource a neobsahuje produkční credentials. Musíte si nakonfigurovat vlastní!
+
+### 1️⃣ Rychlé nastavení
 ```bash
-# Edit credentials
+# Zkopírujte example soubor
+cp config/credentials.example.yml config/credentials.yml
+
+# Nakonfigurujte credentials
 EDITOR=nano rails credentials:edit
-
-# Add required keys:
-comgate:
-  merchant_id: "your_merchant_id"
-  secret: "your_secret_key"
-  base_url: "https://payments.comgate.cz/v2.0"  # Optional
-
-jwt:
-  secret_key: "your_jwt_secret_key"
 ```
 
-### Environment Variables (Alternative)
+### 2️⃣ Povinná konfigurace
+Podle `config/credentials.example.yml` nakonfigurujte:
+
+**🔑 JWT Secret (povinné)**
 ```bash
-# .env file for development
+# Vygenerujte bezpečný klíč
+rails secret
+# Vložte do credentials jako devise_jwt_secret_key
+```
+
+**💳 Comgate pro platby (povinné pro platby)**
+- `merchant_id`: Vaše Comgate merchant ID
+- `secret`: Váš Comgate secret klíč
+- Získáte na [Comgate portálu](https://portal.comgate.cz)
+
+### 3️⃣ Alternative: Environment Variables
+```bash
+# .env file pro development
+JWT_SECRET_KEY=your_jwt_secret_key
 COMGATE_MERCHANT_ID=your_merchant_id
 COMGATE_SECRET=your_secret_key
-JWT_SECRET_KEY=your_jwt_secret
 ```
+
+### 🆘 Troubleshooting
+- **Chyba JWT**: Zkontrolujte `devise_jwt_secret_key` v credentials
+- **Chyba Comgate**: Ověřte merchant_id a secret v Comgate portálu
+- **Permission denied**: Spusťte `chmod +x bin/setup`
 
 ## 🧪 Testing
 

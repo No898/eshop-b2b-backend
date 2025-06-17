@@ -1,105 +1,71 @@
-# 🚀 Lootea B2B Backend - Setup
+# 🚀 Setup Guide pro LooteA B2B Backend
 
-Rychlá příručka pro spuštění projektu na **Windows PC**.
+> **Rychlý start pro nové vývojáře a contributors**
 
 ## 📋 Požadavky
 
-### Nainstalujte:
-1. **Git** - https://git-scm.com/download/win
-2. **Docker Desktop** - https://www.docker.com/products/docker-desktop/
-3. **Ruby 3.3.0** - https://rubyinstaller.org/ (WITH DevKit)
-4. **VS Code** nebo **RubyMine**
+- Ruby 3.2+
+- PostgreSQL 12+
+- Git
+- Text editor (VS Code doporučeno)
 
----
+## 🛠️ Instalace krok za krokem
 
-## ⚡ Rychlý start (5 minut)
-
-### 1️⃣ Clone repo
+### 1️⃣ Klonování projektu
 ```bash
-git clone <your-repo-url>
-cd lootea-b2b-backend
+git clone https://github.com/your-username/eshop-b2b-backend.git
+cd eshop-b2b-backend
 ```
 
-### 2️⃣ Ruby dependencies
+### 2️⃣ Automatická instalace
 ```bash
-# Nainstaluj gems
-bundle install
-
-# Pokud bundle selže, zkus:
-gem install bundler
-bundle install
+./bin/setup
 ```
 
-### 3️⃣ Database (Docker)
-```bash
-# Spusť PostgreSQL
-docker-compose up -d postgres
+**Co setup script udělá:**
+- ✅ Nainstaluje Ruby gems
+- ✅ Zkontroluje credentials
+- ✅ Připraví databázi
+- ✅ Vyčistí temp soubory
 
-# Počkej 10 sekund, pak vytvoř DB
-rails db:create
-rails db:migrate
-rails db:seed
+### 3️⃣ Konfigurace credentials (DŮLEŽITÉ!)
+
+**Pokud setup hlásí chybějící credentials:**
+
+```bash
+# Zkopírujte example
+cp config/credentials.example.yml temp_credentials.yml
+
+# Upravte temp_credentials.yml podle potřeby, pak:
+EDITOR=nano rails credentials:edit
+# Zkopírujte obsah z temp_credentials.yml do editoru
+# Uložte a zavřete editor
+
+# Smažte temp soubor
+rm temp_credentials.yml
 ```
 
-### 4️⃣ Start server
-```bash
-rails server
+**Minimální konfigurace pro start:**
+```yaml
+devise_jwt_secret_key: "your_jwt_secret_32_chars_minimum"
 ```
 
-### 5️⃣ Test GraphQL
-Otevři: http://localhost:3000/graphiql
-
----
-
-## 🐛 Troubleshooting
-
-### Ruby instalace problémy
+### 4️⃣ Spuštění serveru
 ```bash
-# Pokud bundle install selže:
-gem update --system
-gem install bundler
-
-# Pokud pg gem selže:
-# Stáhni PostgreSQL binaries: https://www.postgresql.org/download/windows/
-# Pak: gem install pg -- --with-pg-config="C:/Program Files/PostgreSQL/16/bin/pg_config.exe"
+bin/rails server
+# Nebo zkrácený:
+bin/rails s
 ```
 
-### Docker problémy
-```bash
-# Zkontroluj jestli běží:
-docker ps
+Server poběží na: http://localhost:3000
 
-# Restart PostgreSQL:
-docker-compose down
-docker-compose up -d postgres
-```
+## 🔧 Vývoj
 
-### Port konflikty
-```bash
-# Pokud port 3000 nebo 5432 je obsazený:
-# Rails server na jiném portu:
-rails server -p 4000
-
-# PostgreSQL na jiném portu (změň docker-compose.yml):
-ports:
-  - "5433:5432"
-```
-
----
-
-## ✅ Ověření
-
-### Test database
-```bash
-rails console
-User.count  # => 0 (nebo kolik máš uživatelů)
-Product.count
-```
-
-### Test GraphQL
-V GraphiQL (http://localhost:3000/graphiql):
+### GraphQL Playground
+- URL: http://localhost:3000/graphiql
+- Test query:
 ```graphql
-query {
+{
   products {
     id
     name
@@ -108,56 +74,86 @@ query {
 }
 ```
 
----
-
-## 🔧 Nástroje pro vývoj
-
-### RuboCop (code formatting)
+### Databázové změny
 ```bash
+# Vytvoření migrace
+bin/rails generate migration AddColumnToTable column:type
+
+# Spuštění migrací
+bin/rails db:migrate
+
+# Rollback poslední migrace
+bin/rails db:rollback
+```
+
+### Testování
+```bash
+# RSpec testy (až budou implementovány)
+bundle exec rspec
+
+# Code quality
 bundle exec rubocop
-bundle exec rubocop -a  # autofix
 ```
 
-### Git hooks (automatické)
+## 🔐 Bezpečnost
+
+### Environment variables (alternative k credentials)
 ```bash
-# Pre-commit: RuboCop + whitespace cleanup
-git commit -m "your message"
+# Vytvořte .env soubor:
+echo "JWT_SECRET_KEY=$(rails secret)" >> .env
+echo "COMGATE_MERCHANT_ID=your_id" >> .env
+echo "COMGATE_SECRET=your_secret" >> .env
 ```
 
-### Brakeman (security - je vypnutý pro rychlost)
+### Produkční deployment
+- Necommitujte credentials.yml.enc
+- Používejte environment variables na produkci
+- Testujte nejdřív v Comgate sandbox módu
+
+## 🆘 Časté problémy
+
+### "Master key is missing"
 ```bash
-bundle exec brakeman --config-file config/brakeman.yml
+# Přegenerujte credentials:
+rm config/credentials.yml.enc config/master.key
+rails credentials:edit
 ```
+
+### "Database does not exist"
+```bash
+bin/rails db:create
+bin/rails db:migrate
+```
+
+### "Webpacker compilation failed"
+```bash
+# Reinstalace dependencies
+bundle install
+```
+
+### "Permission denied"
+```bash
+chmod +x bin/setup
+chmod +x bin/rails
+```
+
+## 📚 Další kroky
+
+1. **Přečtěte si dokumentaci:**
+   - `GRAPHQL_GUIDE.md` - GraphQL API
+   - `GRAPHQL_SECURITY.md` - Bezpečnost
+   - `DEVELOPMENT_LOG.md` - Change log
+
+2. **Nastavte IDE:**
+   - Install Ruby extension
+   - Configure Rubocop linter
+   - Add GraphQL syntax highlighting
+
+3. **Připojte se ke komunitě:**
+   - Vytvořte issue při problémech
+   - Navrhněte vylepšení přes PR
+   - Dodržujte coding standards
 
 ---
 
-## 📚 Užitečné
-
-### Rails příkazy
-```bash
-rails console          # Ruby konzole s aplikací
-rails db:migrate        # Spusť migrace
-rails db:seed          # Seed data
-rails routes           # Seznam všech routes
-```
-
-### Docker příkazy
-```bash
-docker-compose up -d postgres     # Start DB
-docker-compose down               # Stop vše
-docker exec -it lootea_postgres psql -U postgres -d lootea_b2b_backend_development
-```
-
----
-
-## 🆘 Pomoc
-
-- **Dokumentace:** `DEVELOPMENT_LOG.md`
-- **GraphQL schema:** `app/graphql/`
-- **Modely:** `app/models/`
-
-**Pokud něco nefunguje, zkontroluj:**
-1. Docker Desktop běží?
-2. Ruby 3.3.0 nainstalováno?
-3. Bundle install proběhl OK?
-4. PostgreSQL kontainer běží? (`docker ps`)
+**🎯 Máte problém?** Vytvořte [nový issue](https://github.com/your-username/eshop-b2b-backend/issues/new) s detailním popisem.

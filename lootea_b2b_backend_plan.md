@@ -29,6 +29,8 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - **Platby** (Comgate integrace, payOrder mutace, webhook zpracování s HMAC ověřením)
 - **File upload systém** (Active Storage + GraphQL Upload Type s validacemi)
 - **Image handling** (produktové obrázky, avatary, firemní loga s různými validacemi)
+- **Inventory Management** (quantity tracking, low stock alerts, thread-safe stock operations)
+- **Product Specifications** (weight/volume, ingredients, liquid/solid classification)
 
 ### 🛡️ **Bezpečnost & Performance**
 - **Pokročilé GraphQL zabezpečení** (introspection blocking, query complexity/depth limits)
@@ -61,8 +63,9 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 ## 🚀 Co můžeme ještě udělat
 
 ### 🎯 **PRIORITY 1 - Základní B2B funkce**
+- ✅ **Inventory management** - HOTOVO (quantity tracking, stock reservations, low stock alerts)
+- ✅ **Product specifications** - HOTOVO (weight/volume, ingredients pro sirupy/nádoby)
 - **Adresní kniha** (doručovací vs fakturační adresy)
-- **Inventory management** (jednoduchý - jen quantity na product)
 - **Bulk pricing** (1ks vs 1bal vs 10bal struktura)
 - **Produktové varianty** (popping balls s různými příchutěmi)
 
@@ -108,9 +111,12 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 
 ### 🔄 **Aktuální priority (PRIORITY 1)**
 - **Adresní kniha** - doručovací vs fakturační adresy pro B2B
-- **Inventory management** - jednoduchý tracking zásob (quantity field)
 - **Bulk pricing** - cenová struktura 1ks vs 1bal vs 10bal
 - **Produktové varianty** - popping balls s různými příchutěmi
+
+### ✅ **Nedávno dokončeno**
+- **Inventory management** - kompletní skladové hospodářství s thread-safe operacemi
+- **Product specifications** - hmotnost/objem (kg/g/l/ml) a složení pro produkty
 
 ### 🎯 **Střednědobé cíle**
 - **Test coverage** - RSpec setup hotov, chybí konkrétní testy

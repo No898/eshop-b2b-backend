@@ -59,14 +59,21 @@ module Mutations
     def create_order_with_items(current_user, items, currency)
       ActiveRecord::Base.transaction do
         products = load_and_validate_products(items)
+        validate_stock_availability(items, products)
+
         total_cents, order_items_data = calculate_order_totals(items, products)
 
         order = create_order(current_user, total_cents, currency)
         create_order_items(order, order_items_data)
 
+        # INVENTORY: Reserve stock for each item
+        reserve_stock_for_order(order_items_data)
+
         { order: order, errors: [] }
       rescue ActiveRecord::RecordInvalid => e
         { order: nil, errors: e.record.errors.full_messages }
+      rescue InsufficientStockError => e
+        { order: nil, errors: [e.message] }
       rescue ActiveRecord::Rollback => e
         { order: nil, errors: [e.message] }
       end
@@ -82,6 +89,38 @@ module Mutations
       end
 
       products
+    end
+
+    def validate_stock_availability(items, products)
+      stock_errors = []
+
+      items.each do |item|
+        product = products[item[:product_id].to_i]
+        requested_quantity = item[:quantity]
+
+        unless product.can_fulfill_order?(requested_quantity)
+          stock_errors << "Produkt '#{product.name}' není dostupný v požadovaném množství " \
+                          "(požadováno: #{requested_quantity}, dostupné: #{product.quantity})"
+        end
+      end
+
+      return unless stock_errors.any?
+
+      raise ActiveRecord::Rollback, stock_errors.join('; ')
+    end
+
+    def reserve_stock_for_order(order_items_data)
+      order_items_data.each do |item_data|
+        product = item_data[:product]
+        quantity = item_data[:quantity]
+
+        # THREAD SAFETY: Reserve stock atomically
+        product.reserve_stock!(quantity)
+      end
+    rescue InsufficientStockError => e
+      # ROLLBACK: If any stock reservation fails, rollback the entire transaction
+      Rails.logger.error("Stock reservation failed during order creation: #{e.message}")
+      raise e
     end
 
     def calculate_order_totals(items, products)
