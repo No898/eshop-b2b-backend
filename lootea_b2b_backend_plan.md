@@ -28,6 +28,8 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - **Login/Register flow** (s proper error handling)
 - **Produkty & objednávky** (CRUD operace)
 - **Platby** (Comgate integrace, payOrder mutace, webhook zpracování s HMAC ověřením)
+- **File upload systém** (Active Storage + GraphQL Upload Type s validacemi)
+- **Image handling** (produktové obrázky, avatary, firemní loga s různými validacemi)
 
 ### 🛡️ **Bezpečnost & Performance**
 - **Pokročilé GraphQL zabezpečení** (introspection blocking, query complexity/depth limits)
@@ -83,7 +85,7 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 ### 🎯 **4️⃣ API Pokročilé funkce**
 - **API versioning** (GraphQL schema versioning)
 - **GraphQL subscriptions** (real-time updates přes WebSocket)
-- **File upload handling** (ActiveStorage s cloud storage)
+- **Cloud storage integrace** (AWS S3 ready pro produkci)
 - **Bulk operations** (hromadné vytváření/úpravy záznamů)
 - **Advanced filtering & sorting** (komplexní vyhledávání)
 - **GraphQL Playground** (interaktivní API dokumentace)

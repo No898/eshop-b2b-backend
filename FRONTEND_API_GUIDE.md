@@ -1190,6 +1190,313 @@ end
 
 ---
 
+## 📁 File Upload
+
+### Upload produktových obrázků
+```typescript
+// mutations/upload.ts
+const UPLOAD_PRODUCT_IMAGES = gql`
+  mutation UploadProductImages($productId: ID!, $images: [Upload!]!) {
+    uploadProductImages(productId: $productId, images: $images) {
+      product {
+        id
+        name
+        imageUrls
+        hasImages
+      }
+      success
+      errors
+    }
+  }
+`;
+
+// Použití v komponentě (pouze admin)
+function ProductImageUpload({ productId }) {
+  const [uploadImages, { loading }] = useMutation(UPLOAD_PRODUCT_IMAGES);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length > 10) {
+      alert('Maximálně 10 obrázků na produkt');
+      return;
+    }
+    setSelectedFiles(files);
+  };
+
+  const handleUpload = async () => {
+    try {
+      const { data } = await uploadImages({
+        variables: {
+          productId,
+          images: selectedFiles
+        }
+      });
+
+      if (data.uploadProductImages.success) {
+        alert('Obrázky nahrány úspěšně!');
+        setSelectedFiles([]);
+      } else {
+        alert('Chyby: ' + data.uploadProductImages.errors.join(', '));
+      }
+    } catch (err) {
+      alert('Chyba při nahrávání obrázků');
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleFileSelect}
+      />
+      <button onClick={handleUpload} disabled={loading || selectedFiles.length === 0}>
+        {loading ? 'Nahrávám...' : `Nahrát ${selectedFiles.length} obrázků`}
+      </button>
+    </div>
+  );
+}
+```
+
+### Upload avataru uživatele
+```typescript
+const UPLOAD_USER_AVATAR = gql`
+  mutation UploadUserAvatar($avatar: Upload!) {
+    uploadUserAvatar(avatar: $avatar) {
+      user {
+        id
+        email
+        avatarUrl
+      }
+      success
+      errors
+    }
+  }
+`;
+
+function AvatarUpload() {
+  const [uploadAvatar, { loading }] = useMutation(UPLOAD_USER_AVATAR);
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validace na frontendu
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Avatar může mít maximálně 2 MB');
+      return;
+    }
+
+    try {
+      const { data } = await uploadAvatar({
+        variables: { avatar: file }
+      });
+
+      if (data.uploadUserAvatar.success) {
+        alert('Avatar nahrán úspěšně!');
+        // Refresh user data
+        window.location.reload();
+      } else {
+        alert('Chyby: ' + data.uploadUserAvatar.errors.join(', '));
+      }
+    } catch (err) {
+      alert('Chyba při nahrávání avataru');
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleAvatarChange}
+      />
+      {loading && <p>Nahrávám avatar...</p>}
+    </div>
+  );
+}
+```
+
+### Upload loga firmy
+```typescript
+const UPLOAD_COMPANY_LOGO = gql`
+  mutation UploadCompanyLogo($logo: Upload!) {
+    uploadCompanyLogo(logo: $logo) {
+      user {
+        id
+        companyName
+        companyLogoUrl
+      }
+      success
+      errors
+    }
+  }
+`;
+
+function CompanyLogoUpload() {
+  const [uploadLogo, { loading }] = useMutation(UPLOAD_COMPANY_LOGO);
+
+  const handleLogoChange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validace na frontendu
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Logo může mít maximálně 3 MB');
+      return;
+    }
+
+    try {
+      const { data } = await uploadLogo({
+        variables: { logo: file }
+      });
+
+      if (data.uploadCompanyLogo.success) {
+        alert('Logo nahráno úspěšně!');
+        // Refresh user data
+        window.location.reload();
+      } else {
+        alert('Chyby: ' + data.uploadCompanyLogo.errors.join(', '));
+      }
+    } catch (err) {
+      alert('Chyba při nahrávání loga');
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf"
+        onChange={handleLogoChange}
+      />
+      {loading && <p>Nahrávám logo...</p>}
+    </div>
+  );
+}
+```
+
+### Zobrazení nahraných obrázků (s Next.js optimalizací)
+```typescript
+import Image from 'next/image';
+
+// Komponenta pro zobrazení produktu s obrázky
+function ProductCard({ product }) {
+  return (
+    <div>
+      <h3>{product.name}</h3>
+
+      {product.hasImages && (
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {product.imageUrls.map((imageUrl, index) => (
+            <Image
+              key={index}
+              src={imageUrl}
+              alt={`${product.name} - obrázek ${index + 1}`}
+              width={100}
+              height={100}
+              style={{ objectFit: 'cover' }}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+            />
+          ))}
+        </div>
+      )}
+
+      <p>{product.priceDecimal} {product.currency}</p>
+    </div>
+  );
+}
+
+// Komponenta pro profil uživatele s avatarem
+function UserProfile({ user }) {
+  return (
+    <div>
+      {user.avatarUrl && (
+        <Image
+          src={user.avatarUrl}
+          alt="Avatar uživatele"
+          width={50}
+          height={50}
+          style={{ borderRadius: '50%', objectFit: 'cover' }}
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+        />
+      )}
+
+      <h2>{user.email}</h2>
+
+      {user.companyLogoUrl && (
+        <div>
+          <h3>Logo firmy:</h3>
+          <Image
+            src={user.companyLogoUrl}
+            alt={`Logo firmy ${user.companyName}`}
+            width={200}
+            height={100}
+            style={{ objectFit: 'contain' }}
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Next.js Image optimalizace - výhody
+```typescript
+// Next.js automaticky:
+// ✅ Konvertuje do WebP/AVIF (podle support prohlížeče)
+// ✅ Generuje responsive velikosti
+// ✅ Lazy loading (načte jen viditelné obrázky)
+// ✅ Blur placeholder pro lepší UX
+// ✅ Optimalizuje velikost podle zařízení
+
+// Konfigurace v next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    // Povolené domény pro externí obrázky
+    domains: ['your-app-name.railway.app', 'localhost'],
+
+    // Formáty pro optimalizaci
+    formats: ['image/webp', 'image/avif'],
+
+    // Velikosti pro responsive images
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+
+    // Kvalita optimalizace (1-100)
+    quality: 85,
+  },
+}
+
+module.exports = nextConfig
+```
+
+### Responsive image příklad
+```typescript
+// Pro různé velikosti obrazovky
+function ResponsiveProductImage({ product }) {
+  return (
+    <Image
+      src={product.imageUrls[0]}
+      alt={product.name}
+      width={400}
+      height={300}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      style={{ width: '100%', height: 'auto' }}
+      priority // Pro above-the-fold obrázky
+    />
+  );
+}
+```
+
+---
+
 ## 🚀 Produkční tipy
 
 ### 1. Caching strategie

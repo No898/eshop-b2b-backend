@@ -301,6 +301,8 @@ mutation RegisterUser {
       id
       email
       companyName
+      avatarUrl
+      companyLogoUrl
     }
     token
     errors
@@ -345,9 +347,54 @@ mutation CreateOrder {
         totalDecimal
         product {
           name
+          imageUrls
+          hasImages
         }
       }
     }
+    errors
+  }
+}
+```
+
+### File Upload mutations
+```graphql
+# Nahrání obrázků k produktu (pouze admin)
+mutation UploadProductImages($productId: ID!, $images: [Upload!]!) {
+  uploadProductImages(productId: $productId, images: $images) {
+    product {
+      id
+      name
+      imageUrls
+      hasImages
+    }
+    success
+    errors
+  }
+}
+
+# Nahrání avataru uživatele
+mutation UploadUserAvatar($avatar: Upload!) {
+  uploadUserAvatar(avatar: $avatar) {
+    user {
+      id
+      email
+      avatarUrl
+    }
+    success
+    errors
+  }
+}
+
+# Nahrání loga firmy (pouze B2B zákazníci)
+mutation UploadCompanyLogo($logo: Upload!) {
+  uploadCompanyLogo(logo: $logo) {
+    user {
+      id
+      companyName
+      companyLogoUrl
+    }
+    success
     errors
   }
 }

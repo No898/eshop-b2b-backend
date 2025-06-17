@@ -9,5 +9,10 @@ module Types
     # Order mutations
     field :create_order, mutation: Mutations::CreateOrder
     field :pay_order, mutation: Mutations::PayOrder
+
+    # Upload mutations
+    field :upload_product_images, mutation: Mutations::UploadProductImages
+    field :upload_user_avatar, mutation: Mutations::UploadUserAvatar
+    field :upload_company_logo, mutation: Mutations::UploadCompanyLogo
   end
 end

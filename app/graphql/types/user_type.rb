@@ -10,6 +10,18 @@ module Types
     field :company_name, String, null: true, description: 'Název firmy (pro B2B zákazníky)'
     field :vat_id, String, null: true, description: 'DIČ (pro B2B zákazníky)'
 
+    # Avatar and company logo URLs pro Next.js
+    field :avatar_url, String, null: true, description: 'URL avataru uživatele'
+    field :company_logo_url, String, null: true, description: 'URL loga firmy'
+
+    def avatar_url
+      object.avatar.attached? ? rails_blob_url(object.avatar) : nil
+    end
+
+    def company_logo_url
+      object.company_logo.attached? ? rails_blob_url(object.company_logo) : nil
+    end
+
     # Associations
     field :orders, [Types::OrderType], null: false, description: 'Seznam objednávek uživatele'
     def orders

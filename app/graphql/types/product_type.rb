@@ -15,6 +15,24 @@ module Types
     field :price_decimal, Float, null: false, description: 'Cena jako desetinné číslo'
     delegate :price_decimal, to: :object
 
+    # Image fields pro Next.js
+    field :image_urls, [String], null: false, description: 'URL obrázků produktu'
+    field :has_images, Boolean, null: false, description: 'Má produkt obrázky?'
+
+    def image_urls
+      object.images.attached? ? object.images.map { |image| rails_blob_url(image) } : []
+    end
+
+    def has_images # rubocop:disable Naming/PredicatePrefix
+      images?
+    end
+
+    private
+
+    def images?
+      object.images.attached?
+    end
+
     # Metadata
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false, description: 'Datum vytvoření'
     field :updated_at, GraphQL::Types::ISO8601DateTime, null: false, description: 'Datum poslední aktualizace'

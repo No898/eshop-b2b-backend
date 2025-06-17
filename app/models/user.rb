@@ -15,6 +15,10 @@ class User < ApplicationRecord
   # Associations
   has_many :orders, dependent: :destroy
 
+  # File attachments
+  has_one_attached :avatar
+  has_one_attached :company_logo
+
   # SECURITY: Validations
   validates :email, presence: true, uniqueness: { case_insensitive: true }
   validates :email, format: { with: Devise.email_regexp }
