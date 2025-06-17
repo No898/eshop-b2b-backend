@@ -14,6 +14,7 @@ gem 'pundit'
 # API + GraphQL
 gem 'graphiql-rails', group: :development
 gem 'graphql'
+gem 'rack-cors'
 
 # Security
 gem 'rack-attack'
