@@ -140,17 +140,26 @@ function MyApp({ Component, pageProps }) {
 import { gql } from '@apollo/client';
 
 const REGISTER_USER = gql`
-  mutation RegisterUser($email: String!, $password: String!, $companyName: String) {
-    registerUser(input: {
+  mutation RegisterUser(
+    $email: String!,
+    $password: String!,
+    $passwordConfirmation: String!,
+    $companyName: String,
+    $vatId: String
+  ) {
+    registerUser(
       email: $email
       password: $password
+      passwordConfirmation: $passwordConfirmation
       companyName: $companyName
-    }) {
+      vatId: $vatId
+    ) {
       user {
         id
         email
         role
         companyName
+        vatId
       }
       token
       errors
@@ -168,7 +177,9 @@ function RegisterForm() {
         variables: {
           email: formData.email,
           password: formData.password,
-          companyName: formData.companyName
+          passwordConfirmation: formData.passwordConfirmation,
+          companyName: formData.companyName,
+          vatId: formData.vatId
         }
       });
 
@@ -201,10 +212,10 @@ function RegisterForm() {
 ```typescript
 const LOGIN_USER = gql`
   mutation LoginUser($email: String!, $password: String!) {
-    loginUser(input: {
+    loginUser(
       email: $email
       password: $password
-    }) {
+    ) {
       user {
         id
         email
@@ -401,9 +412,9 @@ function MyOrders() {
 ```typescript
 const CREATE_ORDER = gql`
   mutation CreateOrder($items: [OrderItemInput!]!) {
-    createOrder(input: {
+    createOrder(
       items: $items
-    }) {
+    ) {
       order {
         id
         totalDecimal
@@ -461,9 +472,9 @@ function CreateOrderForm() {
 ```typescript
 const PAY_ORDER = gql`
   mutation PayOrder($orderId: ID!) {
-    payOrder(input: {
+    payOrder(
       orderId: $orderId
-    }) {
+    ) {
       success
       paymentUrl
       paymentId
@@ -566,9 +577,9 @@ export const getErrorMessage = (errorCode: string): string => {
 // Použití při payment mutation
 const PAY_ORDER = gql`
   mutation PayOrder($orderId: ID!) {
-    payOrder(input: {
+    payOrder(
       orderId: $orderId
-    }) {
+    ) {
       success
       paymentUrl
       paymentId

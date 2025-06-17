@@ -53,3 +53,4 @@ gem 'tzinfo-data', platforms: %i[windows jruby]
 # gem "thruster", require: false
 gem 'rspec_junit_formatter', group: :test
 gem 'rspec-rails', group: %i[development test]
+gem 'aws-sdk-s3', '~> 1.0'

@@ -289,7 +289,7 @@ query MyOrders {
 ### Autentizace mutations
 ```graphql
 # Registrace nového uživatele
-mutation RegisterUser($input: RegisterUserInput!) {
+mutation RegisterUser {
   registerUser(
     email: "tomas@example.com"
     password: "password123"
@@ -327,7 +327,7 @@ mutation LoginUser {
 ### Order management
 ```graphql
 # Vytvoření objednávky
-mutation CreateOrder($input: CreateOrderInput!) {
+mutation CreateOrder {
   createOrder(
     items: [
       { productId: "1", quantity: 2 },
