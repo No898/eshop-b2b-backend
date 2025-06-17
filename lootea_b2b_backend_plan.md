@@ -31,6 +31,9 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - **Image handling** (produktové obrázky, avatary, firemní loga s různými validacemi)
 - **Inventory Management** (quantity tracking, low stock alerts, thread-safe stock operations)
 - **Product Specifications** (weight/volume, ingredients, liquid/solid classification)
+- **Address Management** (billing/shipping adresy, české B2B specifika - IČO/DIČ/PSČ validace)
+- **Bulk Pricing System** (množstevní slevy 1ks/1bal/10bal, dynamické ceny podle množství)
+- **Product Variants System** (varianty produktů s atributy - příchuť, velikost, barva)
 
 ### 🛡️ **Bezpečnost & Performance**
 - **Pokročilé GraphQL zabezpečení** (introspection blocking, query complexity/depth limits)
@@ -56,7 +59,7 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 ### 📝 **Kód qualita & Dokumentace**
 - **Code quality tools** (RuboCop, Brakeman, Lefthook)
 - **Modularizace kódu** (GraphQL concerns pro lepší organizaci)
-- **Kompletní dokumentace** (GRAPHQL_SECURITY.md, FRONTEND_API_GUIDE.md s Railway konfigurací)
+- **Kompletní dokumentace** (GRAPHQL_SECURITY.md, FRONTEND_GUIDE.md, ADDRESS_SYSTEM.md, INVENTORY_SYSTEM.md, BULK_PRICING_SYSTEM.md, PRODUCT_VARIANTS_SYSTEM.md)
 
 ---
 
@@ -65,9 +68,9 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 ### 🎯 **PRIORITY 1 - Základní B2B funkce**
 - ✅ **Inventory management** - HOTOVO (quantity tracking, stock reservations, low stock alerts)
 - ✅ **Product specifications** - HOTOVO (weight/volume, ingredients pro sirupy/nádoby)
-- **Adresní kniha** (doručovací vs fakturační adresy)
-- **Bulk pricing** (1ks vs 1bal vs 10bal struktura)
-- **Produktové varianty** (popping balls s různými příchutěmi)
+- ✅ **Address Management** - HOTOVO (billing/shipping adresy, české IČO/DIČ/PSČ validace)
+- ✅ **Bulk Pricing System** - HOTOVO (množstevní slevy 1ks/1bal/10bal, real-time pricing)
+- ✅ **Product Variants System** - HOTOVO (varianty s příchutěmi/velikostmi, automatic SKU generation)
 
 ### 🧪 **PRIORITY 2 - Testování** (RSpec setup hotov, chybí konkrétní testy)
 - **Model testy** (validace, asociace, metody, edge cases)
@@ -109,12 +112,13 @@ Vše budu psát **sám** s podporou AI, abych se vše naučil a pochopil do hlou
 - **Background job infrastruktura** - Sidekiq + Solid Queue pro Rails 8
 - **Multi-database architektura** - oddělené DB pro cache, queue, cable
 
-### 🔄 **Aktuální priority (PRIORITY 1)**
-- **Adresní kniha** - doručovací vs fakturační adresy pro B2B
-- **Bulk pricing** - cenová struktura 1ks vs 1bal vs 10bal
-- **Produktové varianty** - popping balls s různými příchutěmi
+### 🔄 **Aktuální priority (PRIORITY 2)**
+- **Testování** - RSpec testy pro modely, GraphQL, controllers a integration
 
 ### ✅ **Nedávno dokončeno**
+- **Product Variants System** - varianty produktů s atributy, automatic SKU, GraphQL API
+- **Bulk Pricing System** - množstevní slevy s real-time pricing a GraphQL integrací
+- **Address Management** - fakturační/doručovací adresy s českými B2B specifiky (IČO/DIČ/PSČ)
 - **Inventory management** - kompletní skladové hospodářství s thread-safe operacemi
 - **Product specifications** - hmotnost/objem (kg/g/l/ml) a složení pro produkty
 

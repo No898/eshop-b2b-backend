@@ -48,5 +48,34 @@ module Types
 
       context[:current_user].orders.order(created_at: :desc)
     end
+
+    # Variant attributes queries
+    field :variant_attributes, [Types::VariantAttributeType], null: false, description: 'Seznam všech atributů variant'
+    def variant_attributes
+      VariantAttribute.active.ordered.with_values
+    end
+
+    field :variant_attribute_values, [Types::VariantAttributeValueType], null: false,
+                                                                         description: 'Seznam všech hodnot atributů' do
+      argument :attribute_name, String, required: false,
+                                        description: 'Filtrovat podle názvu atributu (flavor, size, color)'
+    end
+    def variant_attribute_values(attribute_name: nil)
+      if attribute_name.present?
+        VariantAttributeValue.for_attribute(attribute_name).active.ordered
+      else
+        VariantAttributeValue.active.ordered
+      end
+    end
+
+    # Specific variant value queries
+    field :flavors, [Types::VariantAttributeValueType], null: false, description: 'Seznam všech příchutí'
+    delegate :flavors, to: :VariantAttributeValue
+
+    field :sizes, [Types::VariantAttributeValueType], null: false, description: 'Seznam všech velikostí'
+    delegate :sizes, to: :VariantAttributeValue
+
+    field :colors, [Types::VariantAttributeValueType], null: false, description: 'Seznam všech barev'
+    delegate :colors, to: :VariantAttributeValue
   end
 end

@@ -14,5 +14,11 @@ module Types
     field :upload_product_images, mutation: Mutations::UploadProductImages
     field :upload_user_avatar, mutation: Mutations::UploadUserAvatar
     field :upload_company_logo, mutation: Mutations::UploadCompanyLogo
+
+    # Bulk pricing mutations
+    field :create_price_tier, mutation: Mutations::CreatePriceTier
+
+    # Product variant mutations
+    field :create_product_variant, mutation: Mutations::CreateProductVariant
   end
 end

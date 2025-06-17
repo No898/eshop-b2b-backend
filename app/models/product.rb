@@ -1,115 +1,139 @@
 # frozen_string_literal: true
 
 class Product < ApplicationRecord
-  # CONCERNS
   include ProductSpecifications
+  include ProductVariants
 
-  # ASSOCIATIONS
-  has_many :order_items, dependent: :restrict_with_error
+  # Associations
+  has_many :order_items, dependent: :destroy
+  has_many :orders, through: :order_items
+  has_many :price_tiers, class_name: 'ProductPriceTier', dependent: :destroy
   has_many_attached :images
 
-  # VALIDATIONS - Basic product info
-  validates :name, presence: true, length: { minimum: 2, maximum: 100 }
+  # Validations
+  validates :name, presence: true, length: { minimum: 2, maximum: 255 }
+  validates :description, length: { maximum: 2000 }
   validates :price_cents, presence: true, numericality: { greater_than: 0 }
-  validates :currency, presence: true, inclusion: { in: %w[CZK EUR] }
-
-  # VALIDATIONS - Inventory management
   validates :quantity, presence: true, numericality: { greater_than_or_equal_to: 0 }
-  validates :low_stock_threshold, presence: true, numericality: { greater_than: 0 }
+  validates :sku, uniqueness: { allow_blank: true }
+  validates :variant_sku, uniqueness: { allow_blank: true }
 
-  # SCOPES - Product filtering
-  scope :available, -> { where(available: true) }
+  # Variant validations
+  validates :parent_product_id, absence: true, if: :is_variant_parent?
+  validates :parent_product_id, presence: true, if: :variant_child?
+  validates :is_variant_parent, inclusion: { in: [true, false] }
+
+  # Scopes
+  scope :active, -> { where(active: true) }
   scope :in_stock, -> { where('quantity > 0') }
-  scope :out_of_stock, -> { where(quantity: 0) }
-  scope :low_stock, -> { where('quantity <= low_stock_threshold AND quantity > 0') }
+  scope :with_images, -> { joins(:images_attachments) }
+  scope :with_bulk_pricing, -> { joins(:price_tiers).distinct }
   scope :with_sufficient_stock, ->(required_quantity) { where(quantity: required_quantity..) }
 
-  # CALLBACKS - Inventory tracking
-  before_update :log_stock_change, if: :quantity_changed?
-  after_update :notify_low_stock, if: :low_stock?
+  # Callbacks
+  before_save :ensure_variant_consistency
+  after_create :create_default_bulk_pricing, if: :should_create_default_pricing?
 
-  # BUSINESS METHODS - Pricing
-  def price
+  # PRICING METHODS
+  def price_decimal
     price_cents / 100.0
   end
 
-  def formatted_price
-    "#{price} #{currency}"
+  def price_for_quantity(quantity)
+    return price_decimal if quantity <= 1
+
+    applicable_tier = price_tiers.active
+                                 .where(min_quantity: ..quantity)
+                                 .where('max_quantity IS NULL OR max_quantity >= ?', quantity)
+                                 .order(:min_quantity)
+                                 .last
+
+    applicable_tier&.price_decimal || price_decimal
   end
 
-  # BUSINESS METHODS - Inventory management
+  def bulk_savings_for_quantity(quantity)
+    base_price = price_decimal
+    bulk_price = price_for_quantity(quantity)
+    return 0 if base_price == bulk_price
+
+    ((base_price - bulk_price) / base_price * 100).round(1)
+  end
+
+  def bulk_pricing?
+    price_tiers.exists?
+  end
+
+  # STOCK METHODS
   def in_stock?
     quantity.positive?
   end
 
+  def low_stock?(threshold = 10)
+    quantity <= threshold && quantity.positive?
+  end
+
   def out_of_stock?
-    quantity.zero?
+    quantity <= 0
   end
 
-  def low_stock?
-    quantity <= low_stock_threshold && quantity.positive?
-  end
-
-  def sufficient_stock?(required_quantity)
-    quantity >= required_quantity
-  end
-
-  def can_fulfill_order?(requested_quantity)
-    available? && sufficient_stock?(requested_quantity)
-  end
-
-  # BUSINESS METHODS - Stock operations
   def reserve_stock!(quantity_to_reserve)
-    raise InsufficientStockError.new(self, quantity_to_reserve) unless sufficient_stock?(quantity_to_reserve)
-
-    with_lock do
-      # THREAD SAFETY: Re-check stock after acquiring lock
-      raise InsufficientStockError.new(self, quantity_to_reserve) unless sufficient_stock?(quantity_to_reserve)
-
-      update!(quantity: quantity - quantity_to_reserve)
-      Rails.logger.info("Stock reserved: Product #{id}, quantity: #{quantity_to_reserve}, remaining: #{quantity}")
+    if quantity < quantity_to_reserve
+      raise InsufficientStockError, "Insufficient stock. Available: #{quantity}, requested: #{quantity_to_reserve}"
     end
+
+    update!(quantity: quantity - quantity_to_reserve)
   end
 
   def release_stock!(quantity_to_release)
     update!(quantity: quantity + quantity_to_release)
-    Rails.logger.info("Stock released: Product #{id}, quantity: #{quantity_to_release}, new total: #{quantity}")
   end
 
-  def update_stock!(new_quantity, reason: nil)
-    old_quantity = quantity
-    update!(quantity: new_quantity)
-    Rails.logger.info("Stock updated: Product #{id}, from #{old_quantity} to #{new_quantity}, reason: #{reason}")
+  # IMAGE METHODS
+  def images?
+    images.attached?
+  end
+
+  def primary_image
+    images.first
   end
 
   private
 
-  def log_stock_change
-    return unless quantity_changed?
+  def ensure_variant_consistency
+    if is_variant_parent? && parent_product_id.present?
+      errors.add(:parent_product_id, 'cannot be set for variant parent')
+      throw :abort
+    end
 
-    Rails.logger.info(
-      "Stock change detected: Product #{id} (#{name}) - " \
-      "from #{quantity_was} to #{quantity}"
+    return unless !is_variant_parent? && parent_product_id.blank? && variants.exists?
+
+    errors.add(:is_variant_parent, 'must be true if product has variants')
+    throw :abort
+  end
+
+  def should_create_default_pricing?
+    price_cents.present? && price_tiers.empty?
+  end
+
+  def create_default_bulk_pricing
+    # 12% sleva pro 12+ kusů
+    price_tiers.create!(
+      tier_name: '1bal',
+      min_quantity: 12,
+      max_quantity: 119,
+      price_cents: (price_cents * 0.88).round,
+      description: 'Balení 12 kusů - úspora 12%'
+    )
+
+    # 20% sleva pro 120+ kusů
+    price_tiers.create!(
+      tier_name: '10bal',
+      min_quantity: 120,
+      max_quantity: nil,
+      price_cents: (price_cents * 0.80).round,
+      description: 'Kartón 120 kusů - úspora 20%'
     )
   end
 
-  def notify_low_stock
-    Rails.logger.warn(
-      "LOW STOCK ALERT: Product #{id} (#{name}) - " \
-      "current stock: #{quantity}, threshold: #{low_stock_threshold}"
-    )
-    # TODO: Implement email/webhook notification for low stock
-  end
-end
-
-# CUSTOM EXCEPTIONS
-class InsufficientStockError < StandardError
-  attr_reader :product, :requested_quantity
-
-  def initialize(product, requested_quantity)
-    @product = product
-    @requested_quantity = requested_quantity
-    super("Insufficient stock for product '#{product.name}' (ID: #{product.id}). " \
-          "Requested: #{requested_quantity}, Available: #{product.quantity}")
-  end
+  class InsufficientStockError < StandardError; end
 end

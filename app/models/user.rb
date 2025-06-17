@@ -14,6 +14,7 @@ class User < ApplicationRecord
 
   # Associations
   has_many :orders, dependent: :destroy
+  has_many :addresses, dependent: :destroy
 
   # File attachments
   has_one_attached :avatar
@@ -48,6 +49,23 @@ class User < ApplicationRecord
     return true if admin?
 
     target_user.id == id
+  end
+
+  # ADDRESS METHODS
+  def default_billing_address
+    addresses.billing_addresses.default_addresses.first
+  end
+
+  def default_shipping_address
+    addresses.shipping_addresses.default_addresses.first
+  end
+
+  delegate :billing_addresses, to: :addresses
+
+  delegate :shipping_addresses, to: :addresses
+
+  def complete_billing_info?
+    default_billing_address&.complete_billing_info?
   end
 
   private

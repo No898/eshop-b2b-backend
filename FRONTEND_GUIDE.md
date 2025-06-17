@@ -9,6 +9,9 @@ Kompletní návod jak používat naše GraphQL API ve frontend aplikaci + UI tip
 - [🔐 Autentizace](#-autentizace)
 - [📊 Získávání dat (Queries)](#-získávání-dat-queries)
 - [✏️ Změny dat (Mutations)](#️-změny-dat-mutations)
+- [📍 Address Management](#-address-management)
+- [🏷️ Bulk Pricing System](#️-bulk-pricing-system)
+- [🎨 Product Variants System](#-product-variants-system)
 - [❌ Error Handling](#-error-handling)
 - [💳 Payment Errors](#-payment-errors)
 - [🔧 TypeScript Setup](#-typescript-setup)
@@ -887,6 +890,1458 @@ function PaymentButton({ orderId }) {
       {loading ? 'Připravujeme platbu...' : 'Zaplatit'}
     </button>
   );
+}
+```
+
+---
+
+## 📍 Address Management
+
+### Adresní systém pro B2B
+Náš backend podporuje pokročilý address management s českými specifiky pro B2B klienty:
+
+#### 🏢 Typy adres
+- **Billing Address (Fakturační)** - POVINNÁ pro firmy s DIČ/IČO
+- **Shipping Address (Doručovací)** - Volitelná, pokud není uvedena, používá se billing
+
+#### 🇨🇿 České B2B specifika
+- **IČO** (Company Registration ID) - validace 8 číslic
+- **DIČ** (VAT ID) - validace CZ + 8-10 číslic
+- **PSČ** - validace 5 číslic s automatickým formátováním
+
+### AddressType (GraphQL Schema)
+```graphql
+type Address {
+  id: ID!
+  addressType: String!         # "billing" | "shipping"
+  street: String!
+  city: String!
+  postalCode: String!          # Automaticky formátováno "123 45"
+  country: String!             # Default "CZ"
+  companyName: String
+  companyVatId: String         # DIČ - pouze pro billing adresy
+  companyRegistrationId: String # IČO - pouze pro billing adresy
+  isDefault: Boolean!          # Jedna default per type per user
+  createdAt: String!
+  updatedAt: String!
+}
+```
+
+### 📝 Adresní formulář komponenta
+```typescript
+// components/AddressForm.tsx
+import React, { useState } from 'react';
+import { useMutation } from '@apollo/client';
+
+interface AddressFormData {
+  addressType: 'billing' | 'shipping';
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  companyName?: string;
+  companyVatId?: string;      // DIČ
+  companyRegistrationId?: string; // IČO
+  isDefault: boolean;
+}
+
+const CREATE_ADDRESS = gql`
+  mutation CreateAddress($input: CreateAddressInput!) {
+    createAddress(input: $input) {
+      address {
+        id
+        addressType
+        street
+        city
+        postalCode
+        companyName
+        companyVatId
+        companyRegistrationId
+        isDefault
+      }
+      errors
+    }
+  }
+`;
+
+export default function AddressForm({
+  initialType = 'billing',
+  onSuccess
+}: {
+  initialType?: 'billing' | 'shipping';
+  onSuccess?: () => void;
+}) {
+  const [formData, setFormData] = useState<AddressFormData>({
+    addressType: initialType,
+    street: '',
+    city: '',
+    postalCode: '',
+    country: 'CZ',
+    companyName: '',
+    companyVatId: '',
+    companyRegistrationId: '',
+    isDefault: true
+  });
+
+  const [createAddress, { loading, error }] = useMutation(CREATE_ADDRESS, {
+    onCompleted: (data) => {
+      if (data.createAddress.address && !data.createAddress.errors?.length) {
+        onSuccess?.();
+      }
+    }
+  });
+
+  // Automatické formátování PSČ při psaní
+  const handlePostalCodeChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, ''); // Pouze číslice
+    if (cleaned.length <= 5) {
+      const formatted = cleaned.length > 3
+        ? `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`
+        : cleaned;
+      setFormData(prev => ({ ...prev, postalCode: formatted }));
+    }
+  };
+
+  // Validace IČO (8 číslic)
+  const validateIco = (ico: string): boolean => {
+    const cleaned = ico.replace(/\D/g, '');
+    return cleaned.length === 8;
+  };
+
+  // Validace DIČ (CZ + 8-10 číslic)
+  const validateDic = (dic: string): boolean => {
+    const dicRegex = /^CZ\d{8,10}$/;
+    return dicRegex.test(dic.toUpperCase());
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validace pro billing adresy
+    if (formData.addressType === 'billing') {
+      if (formData.companyRegistrationId && !validateIco(formData.companyRegistrationId)) {
+        alert('IČO musí obsahovat přesně 8 číslic');
+        return;
+      }
+
+      if (formData.companyVatId && !validateDic(formData.companyVatId)) {
+        alert('DIČ musí být ve formátu CZ12345678 (CZ + 8-10 číslic)');
+        return;
+      }
+    }
+
+    await createAddress({
+      variables: {
+        input: {
+          ...formData,
+          // Pro shipping adresy odstraníme company údaje
+          ...(formData.addressType === 'shipping' && {
+            companyName: null,
+            companyVatId: null,
+            companyRegistrationId: null
+          })
+        }
+      }
+    });
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-lg font-semibold mb-4">
+        {formData.addressType === 'billing' ? '🏢 Fakturační adresa' : '📦 Doručovací adresa'}
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Typ adresy */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Typ adresy</label>
+          <div className="flex gap-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="billing"
+                checked={formData.addressType === 'billing'}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  addressType: e.target.value as 'billing' | 'shipping'
+                }))}
+                className="mr-2"
+              />
+              🏢 Fakturační
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="shipping"
+                checked={formData.addressType === 'shipping'}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  addressType: e.target.value as 'billing' | 'shipping'
+                }))}
+                className="mr-2"
+              />
+              📦 Doručovací
+            </label>
+          </div>
+        </div>
+
+        {/* Adresní údaje */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">
+              Ulice a číslo popisné *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.street}
+              onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
+              placeholder="např. Václavské náměstí 123"
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Město *</label>
+            <input
+              type="text"
+              required
+              value={formData.city}
+              onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+              placeholder="Praha"
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">PSČ *</label>
+            <input
+              type="text"
+              required
+              value={formData.postalCode}
+              onChange={(e) => handlePostalCodeChange(e.target.value)}
+              placeholder="110 00"
+              maxLength={6}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Firemní údaje - pouze pro billing */}
+        {formData.addressType === 'billing' && (
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-medium mb-3 text-blue-800">🏢 Firemní údaje</h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Název firmy</label>
+                <input
+                  type="text"
+                  value={formData.companyName || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                  placeholder="Lootea s.r.o."
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    IČO
+                    <span className="text-xs text-gray-500">(8 číslic)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyRegistrationId || ''}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/\D/g, '');
+                      if (cleaned.length <= 8) {
+                        setFormData(prev => ({ ...prev, companyRegistrationId: cleaned }));
+                      }
+                    }}
+                    placeholder="12345678"
+                    maxLength={8}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    DIČ
+                    <span className="text-xs text-gray-500">(CZ12345678)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyVatId || ''}
+                    onChange={(e) => {
+                      let value = e.target.value.toUpperCase();
+                      if (!value.startsWith('CZ') && value.length > 0) {
+                        value = 'CZ' + value.replace(/\D/g, '');
+                      }
+                      if (value.length <= 12) { // CZ + 10 číslic max
+                        setFormData(prev => ({ ...prev, companyVatId: value }));
+                      }
+                    }}
+                    placeholder="CZ12345678"
+                    maxLength={12}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Default adresa */}
+        <label className="flex items-center">
+          <input
+            type="checkbox"
+            checked={formData.isDefault}
+            onChange={(e) => setFormData(prev => ({ ...prev, isDefault: e.target.checked }))}
+            className="mr-2"
+          />
+          <span className="text-sm">
+            Nastavit jako výchozí {formData.addressType === 'billing' ? 'fakturační' : 'doručovací'} adresu
+          </span>
+        </label>
+
+        {/* Error handling */}
+        {error && (
+          <div className="bg-red-50 text-red-700 p-3 rounded border border-red-200">
+            <strong>Chyba:</strong> {error.message}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400
+                     text-white font-medium py-2 px-4 rounded transition-colors"
+        >
+          {loading ? 'Ukládám...' : 'Uložit adresu'}
+        </button>
+      </form>
+    </div>
+  );
+}
+```
+
+### 📋 Seznam adres komponenta
+```typescript
+// components/AddressList.tsx
+import React from 'react';
+import { useQuery, useMutation } from '@apollo/client';
+
+const GET_USER_ADDRESSES = gql`
+  query GetUserAddresses {
+    currentUser {
+      id
+      addresses {
+        id
+        addressType
+        street
+        city
+        postalCode
+        companyName
+        companyVatId
+        companyRegistrationId
+        isDefault
+      }
+    }
+  }
+`;
+
+const SET_DEFAULT_ADDRESS = gql`
+  mutation SetDefaultAddress($id: ID!) {
+    setDefaultAddress(id: $id) {
+      address {
+        id
+        isDefault
+      }
+      errors
+    }
+  }
+`;
+
+export default function AddressList() {
+  const { data, loading, error } = useQuery(GET_USER_ADDRESSES);
+  const [setDefault] = useMutation(SET_DEFAULT_ADDRESS, {
+    refetchQueries: [GET_USER_ADDRESSES]
+  });
+
+  if (loading) return <div>Načítám adresy...</div>;
+  if (error) return <div>Chyba při načítání adres: {error.message}</div>;
+
+  const addresses = data?.currentUser?.addresses || [];
+  const billingAddresses = addresses.filter(addr => addr.addressType === 'billing');
+  const shippingAddresses = addresses.filter(addr => addr.addressType === 'shipping');
+
+  const AddressCard = ({ address }: { address: any }) => (
+    <div className={`p-4 border rounded-lg ${address.isDefault ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+      <div className="flex justify-between items-start mb-2">
+        <h4 className="font-medium">
+          {address.addressType === 'billing' ? '🏢 Fakturační' : '📦 Doručovací'}
+          {address.isDefault && <span className="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded">Výchozí</span>}
+        </h4>
+
+        {!address.isDefault && (
+          <button
+            onClick={() => setDefault({ variables: { id: address.id } })}
+            className="text-xs text-blue-600 hover:text-blue-800"
+          >
+            Nastavit jako výchozí
+          </button>
+        )}
+      </div>
+
+      <div className="text-sm text-gray-700 space-y-1">
+        <div>{address.street}</div>
+        <div>{address.city}, {address.postalCode}</div>
+
+        {address.companyName && (
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <div className="font-medium">{address.companyName}</div>
+            {address.companyRegistrationId && <div>IČO: {address.companyRegistrationId}</div>}
+            {address.companyVatId && <div>DIČ: {address.companyVatId}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Fakturační adresy */}
+      <section>
+        <h3 className="text-lg font-semibold mb-3">🏢 Fakturační adresy</h3>
+        {billingAddresses.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {billingAddresses.map(address => (
+              <AddressCard key={address.id} address={address} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 italic">Žádné fakturační adresy</p>
+        )}
+      </section>
+
+      {/* Doručovací adresy */}
+      <section>
+        <h3 className="text-lg font-semibold mb-3">📦 Doručovací adresy</h3>
+        {shippingAddresses.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {shippingAddresses.map(address => (
+              <AddressCard key={address.id} address={address} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 italic">
+            Žádné doručovací adresy - bude použita fakturační adresa
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+```
+
+### 🎯 UX Tipy pro adresní formuláře
+
+#### ✅ Co dělat správně:
+1. **Automatické formátování** - PSČ, DIČ se formátují při psaní
+2. **Inline validace** - Okamžitá kontrola IČO/DIČ formátu
+3. **Smart defaults** - Země "CZ", auto-přidání "CZ" k DIČ
+4. **Conditional fields** - Firemní údaje jen pro billing adresy
+5. **Visual hierarchy** - Jasné rozlišení billing vs shipping
+6. **Default flagging** - Uživatel ví, která adresa je výchozí
+
+#### ❌ Čeho se vyvarovat:
+1. **Příliš mnoho povinných polí** - Pro shipping jen minimum
+2. **Absence auto-complete** - Používejte `autocomplete` atributy
+3. **Špatné validační zprávy** - Buďte konkrétní ("IČO musí mít 8 číslic")
+4. **Dlouhé formuláře** - Rozdělte billing/shipping do kroků
+5. **Ignorování českých specifik** - IČO/DIČ jsou důležité pro B2B
+
+#### 🎨 CSS utility classes pro formuláře:
+```css
+/* Custom CSS pro českou lokalizaci */
+.czech-form-field {
+  @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+}
+
+.czech-form-error {
+  @apply text-red-600 text-sm mt-1;
+}
+
+.czech-form-success {
+  @apply text-green-600 text-sm mt-1;
+}
+
+.billing-section {
+  @apply bg-blue-50 border border-blue-200 rounded-lg p-4;
+}
+
+.shipping-section {
+  @apply bg-gray-50 border border-gray-200 rounded-lg p-4;
+}
+```
+
+---
+
+## 🏷️ Bulk Pricing System
+
+### Dynamické ceny podle množství
+Náš backend podporuje sofistikovaný bulk pricing systém s českými B2B specifiky:
+
+#### 📊 Cenové úrovně
+- **1ks** - Retail cena (pro malé objednávky)
+- **1bal** - Balení (typicky 10-12 kusů)
+- **10bal** - Kartón/Paleta (120+ kusů)
+- **custom** - Vlastní množstevní slevy
+
+### GraphQL Queries pro bulk pricing
+```typescript
+// Real-time pricing query
+const GET_PRODUCT_PRICING = gql`
+  query GetProductPricing($productId: ID!, $quantity: Int!) {
+    product(id: $productId) {
+      id
+      name
+      basePrice: priceDecimal
+      currentPrice: priceForQuantity(quantity: $quantity)
+      savings: bulkSavingsForQuantity(quantity: $quantity)
+      hasBulkPricing
+
+      priceTiers {
+        id
+        tierName
+        minQuantity
+        maxQuantity
+        priceDecimal
+        quantityRangeDescription
+        savingsPercentage
+        description
+      }
+    }
+  }
+`;
+
+// Lista produktů s bulk pricing info
+const GET_PRODUCTS_WITH_PRICING = gql`
+  query GetProductsWithPricing {
+    products {
+      id
+      name
+      priceDecimal
+      hasBulkPricing
+
+      priceTiers {
+        tierName
+        minQuantity
+        priceDecimal
+        savingsPercentage
+      }
+    }
+  }
+`;
+```
+
+### React komponenta pro cenové úrovně
+```tsx
+// components/BulkPricingTable.tsx
+interface BulkPricingTableProps {
+  product: {
+    id: string;
+    name: string;
+    priceDecimal: number;
+    priceTiers: PriceTier[];
+    hasBulkPricing: boolean;
+  };
+  selectedQuantity: number;
+  onQuantitySelect: (quantity: number) => void;
+}
+
+export default function BulkPricingTable({
+  product,
+  selectedQuantity,
+  onQuantitySelect
+}: BulkPricingTableProps) {
+  if (!product.hasBulkPricing) {
+    return (
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <p className="text-lg font-semibold">{product.priceDecimal} CZK/ks</p>
+        <p className="text-sm text-gray-600">Jednotná cena</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bulk-pricing-table">
+      <h3 className="text-lg font-semibold mb-4">💰 Množstevní slevy</h3>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border border-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left">Množství</th>
+              <th className="px-4 py-2 text-left">Cena/ks</th>
+              <th className="px-4 py-2 text-left">Úspora</th>
+              <th className="px-4 py-2 text-left">Akce</th>
+            </tr>
+          </thead>
+          <tbody>
+            {product.priceTiers.map((tier) => {
+              const isActive = selectedQuantity >= tier.minQuantity &&
+                              (tier.maxQuantity === null || selectedQuantity <= tier.maxQuantity);
+
+              return (
+                <tr
+                  key={tier.id}
+                  className={`border-t hover:bg-gray-50 cursor-pointer ${
+                    isActive ? 'bg-green-50 border-green-200' : ''
+                  }`}
+                  onClick={() => onQuantitySelect(tier.minQuantity)}
+                >
+                  <td className="px-4 py-3">
+                    <div>
+                      <span className="font-medium text-sm text-gray-900">
+                        {tier.tierName.toUpperCase()}
+                      </span>
+                      <div className="text-xs text-gray-500">
+                        {tier.quantityRangeDescription}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span className="text-lg font-bold text-green-600">
+                      {tier.priceDecimal.toFixed(2)} CZK
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {tier.savingsPercentage > 0 && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        -{tier.savingsPercentage}%
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuantitySelect(tier.minQuantity);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Vybrat
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {product.priceTiers.some(tier => tier.description) && (
+        <div className="mt-3 space-y-1">
+          {product.priceTiers
+            .filter(tier => tier.description)
+            .map(tier => (
+              <p key={tier.id} className="text-xs text-gray-500">
+                <strong>{tier.tierName}:</strong> {tier.description}
+              </p>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Smart Quantity Selector s real-time pricing
+```tsx
+// components/SmartQuantitySelector.tsx
+import { useState, useEffect } from 'react';
+import { useQuery } from '@apollo/client';
+
+interface SmartQuantitySelectorProps {
+  productId: string;
+  onQuantityChange: (quantity: number, totalPrice: number, savings: number) => void;
+}
+
+export default function SmartQuantitySelector({
+  productId,
+  onQuantityChange
+}: SmartQuantitySelectorProps) {
+  const [quantity, setQuantity] = useState(1);
+
+  // Real-time pricing query
+  const { data, loading } = useQuery(GET_PRODUCT_PRICING, {
+    variables: { productId, quantity },
+    fetchPolicy: 'cache-and-network'
+  });
+
+  const currentPrice = data?.product?.currentPrice || 0;
+  const savings = data?.product?.savings || 0;
+  const totalPrice = currentPrice * quantity;
+  const basePrice = data?.product?.basePrice || 0;
+
+  useEffect(() => {
+    onQuantityChange(quantity, totalPrice, savings);
+  }, [quantity, totalPrice, savings, onQuantityChange]);
+
+  const handleQuantityChange = (newQuantity: number) => {
+    if (newQuantity >= 1) {
+      setQuantity(newQuantity);
+    }
+  };
+
+  // Quick select buttons for common bulk quantities
+  const quickSelectOptions = data?.product?.priceTiers?.map(tier => ({
+    quantity: tier.minQuantity,
+    label: tier.tierName.toUpperCase(),
+    savings: tier.savingsPercentage
+  })) || [];
+
+  return (
+    <div className="space-y-4">
+      {/* Manual quantity input */}
+      <div className="flex items-center gap-4">
+        <label className="font-medium text-sm">Množství:</label>
+        <div className="flex items-center border border-gray-300 rounded-lg">
+          <button
+            onClick={() => handleQuantityChange(quantity - 1)}
+            disabled={quantity <= 1}
+            className="px-3 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            value={quantity}
+            onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+            min="1"
+            className="w-20 px-3 py-2 text-center border-l border-r border-gray-300 focus:outline-none"
+          />
+          <button
+            onClick={() => handleQuantityChange(quantity + 1)}
+            className="px-3 py-2 text-gray-600 hover:text-gray-800"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      {/* Quick select buttons */}
+      {quickSelectOptions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-700">Rychlý výběr:</p>
+          <div className="flex flex-wrap gap-2">
+            {quickSelectOptions.map((option) => (
+              <button
+                key={option.quantity}
+                onClick={() => handleQuantityChange(option.quantity)}
+                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                  quantity >= option.quantity
+                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {option.label}
+                {option.savings > 0 && (
+                  <span className="ml-1 font-medium">(-{option.savings}%)</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pricing summary */}
+      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">Cena za kus:</span>
+            <div className="text-right">
+              <span className="text-lg font-bold text-blue-600">
+                {currentPrice.toFixed(2)} CZK
+              </span>
+              {savings > 0 && basePrice > currentPrice && (
+                <div className="text-xs text-gray-500 line-through">
+                  {basePrice.toFixed(2)} CZK
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">Celková cena:</span>
+            <span className="text-xl font-bold text-blue-600">
+              {totalPrice.toFixed(2)} CZK
+            </span>
+          </div>
+
+          {savings > 0 && (
+            <div className="pt-2 border-t border-blue-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-600 font-medium">
+                  💰 Vaše úspora:
+                </span>
+                <span className="text-sm font-bold text-green-600">
+                  {savings.toFixed(1)}% ({((basePrice - currentPrice) * quantity).toFixed(2)} CZK)
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {loading && (
+        <div className="text-center text-sm text-gray-500">
+          Přepočítávám cenu...
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Bulk Actions v košíku
+```tsx
+// components/CartBulkActions.tsx
+export default function CartBulkActions({ cartItems, onBulkUpdate }) {
+  const suggestBulkUpgrades = () => {
+    return cartItems
+      .filter(item => item.product.hasBulkPricing)
+      .map(item => {
+        const nextTier = item.product.priceTiers.find(
+          tier => tier.minQuantity > item.quantity
+        );
+
+        if (nextTier) {
+          const currentTotal = item.quantity * item.unitPrice;
+          const upgradedTotal = nextTier.minQuantity * nextTier.priceDecimal;
+          const savings = ((currentTotal - upgradedTotal) / currentTotal * 100);
+
+          return {
+            item,
+            nextTier,
+            potentialSavings: savings,
+            recommendedQuantity: nextTier.minQuantity
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  };
+
+  const suggestions = suggestBulkUpgrades();
+
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <h4 className="font-medium text-yellow-800 mb-3">
+        💡 Doporučení pro větší úspory
+      </h4>
+
+      <div className="space-y-3">
+        {suggestions.map(({ item, nextTier, potentialSavings, recommendedQuantity }) => (
+          <div key={item.id} className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium">{item.product.name}</p>
+              <p className="text-xs text-gray-600">
+                Zvyšte na {recommendedQuantity} ks pro {potentialSavings.toFixed(1)}% úsporu
+              </p>
+            </div>
+
+            <button
+              onClick={() => onBulkUpdate(item.id, recommendedQuantity)}
+              className="ml-4 px-3 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700"
+            >
+              Zvýšit
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### CSS Styles pro bulk pricing
+```css
+/* styles/bulk-pricing.css */
+.bulk-pricing-table {
+  @apply space-y-4;
+}
+
+.bulk-pricing-tier {
+  @apply p-4 border-2 rounded-lg cursor-pointer transition-all duration-200;
+}
+
+.bulk-pricing-tier:hover {
+  @apply border-blue-300 shadow-md;
+}
+
+.bulk-pricing-tier--active {
+  @apply border-green-500 bg-green-50;
+}
+
+.bulk-pricing-tier--best-value {
+  @apply relative;
+}
+
+.bulk-pricing-tier--best-value::before {
+  content: "Nejlepší hodnota";
+  @apply absolute -top-2 left-4 bg-red-500 text-white text-xs px-2 py-1 rounded;
+}
+
+.savings-badge {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.savings-badge--low {
+  @apply bg-yellow-100 text-yellow-700;
+}
+
+.savings-badge--medium {
+  @apply bg-orange-100 text-orange-700;
+}
+
+.savings-badge--high {
+  @apply bg-red-100 text-red-700;
+}
+```
+
+---
+
+## 🎨 Product Variants System
+
+### Hierarchické varianty produktů
+Náš backend podporuje sofistikovaný variant systém pro B2B produkty:
+
+#### 🏗️ Architektura variant
+- **Parent Product** - základní produkt (např. "Popping Pearls")
+- **Variant Products** - konkrétní varianty (Jahoda 3kg, Mango 5kg, atd.)
+- **Variant Attributes** - typy atributů (flavor, size, color)
+- **Automatic SKU** - generované SKU kódy (0001-STR-MED)
+
+### GraphQL Queries pro variants
+```typescript
+// Produkty s variantami
+const GET_PRODUCTS_WITH_VARIANTS = gql`
+  query GetProductsWithVariants {
+    products {
+      id
+      name
+      priceDecimal
+      isVariantParent
+      isVariantChild
+      hasVariants
+      variantsCount
+
+      # Pro parent produkty
+      variants {
+        id
+        name
+        variantDisplayName
+        priceDecimal
+        quantity
+        inStock
+        variantSku
+
+        # Atributy variant
+        flavor {
+          id
+          value
+          displayValue
+          colorCode
+        }
+        size {
+          id
+          value
+          displayValue
+        }
+        color {
+          id
+          value
+          displayValue
+          colorCode
+        }
+
+        # Bulk pricing pro varianty
+        hasBulkPricing
+        priceForQuantity(quantity: 1)
+        priceForQuantity(quantity: 12)
+        priceForQuantity(quantity: 120)
+      }
+
+      # Pro variant produkty
+      parentProduct {
+        id
+        name
+      }
+
+      variantAttributeValues {
+        attributeName
+        attributeDisplayName
+        displayValue
+        colorCode
+      }
+    }
+  }
+`;
+
+// Variant attributes
+const GET_VARIANT_ATTRIBUTES = gql`
+  query GetVariantAttributes {
+    variantAttributes {
+      id
+      name
+      displayName
+      description
+      isFlavor
+      isSize
+      isColor
+
+      activeValues {
+        id
+        value
+        displayValue
+        colorCode
+        description
+        sortOrder
+      }
+    }
+
+    flavors {
+      id
+      value
+      displayValue
+      colorCode
+      productsCount
+    }
+
+    sizes {
+      id
+      value
+      displayValue
+      productsCount
+    }
+  }
+`;
+```
+
+### React komponenta pro výběr variant
+```tsx
+// components/VariantSelector.tsx
+import { useState } from 'react';
+import { useQuery } from '@apollo/client';
+
+interface VariantSelectorProps {
+  parentProduct: {
+    id: string;
+    name: string;
+    variants: ProductVariant[];
+  };
+  onVariantSelect: (variant: ProductVariant) => void;
+}
+
+export default function VariantSelector({ parentProduct, onVariantSelect }: VariantSelectorProps) {
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+
+  // Group variants by attributes for easier selection
+  const variantsByAttributes = parentProduct.variants.reduce((acc, variant) => {
+    const key = variant.variantAttributeValues
+      .map(attr => `${attr.attributeName}:${attr.value}`)
+      .join('|');
+    acc[key] = variant;
+    return acc;
+  }, {} as Record<string, ProductVariant>);
+
+  // Get available attribute values
+  const availableAttributes = parentProduct.variants.reduce((acc, variant) => {
+    variant.variantAttributeValues.forEach(attr => {
+      if (!acc[attr.attributeName]) {
+        acc[attr.attributeName] = {
+          displayName: attr.attributeDisplayName,
+          values: []
+        };
+      }
+
+      const exists = acc[attr.attributeName].values.find(v => v.value === attr.value);
+      if (!exists) {
+        acc[attr.attributeName].values.push({
+          value: attr.value,
+          displayValue: attr.displayValue,
+          colorCode: attr.colorCode
+        });
+      }
+    });
+    return acc;
+  }, {} as Record<string, any>);
+
+  const handleAttributeSelect = (attributeName: string, value: string) => {
+    const newSelection = { ...selectedAttributes, [attributeName]: value };
+    setSelectedAttributes(newSelection);
+
+    // Find matching variant
+    const attributeKey = Object.entries(newSelection)
+      .map(([attr, val]) => `${attr}:${val}`)
+      .sort()
+      .join('|');
+
+    const matchingVariant = Object.entries(variantsByAttributes).find(([key]) => {
+      const keyParts = key.split('|').sort();
+      const selectionParts = attributeKey.split('|').sort();
+      return keyParts.every(part => selectionParts.includes(part));
+    });
+
+    if (matchingVariant) {
+      onVariantSelect(matchingVariant[1]);
+    }
+  };
+
+  return (
+    <div className="variant-selector space-y-6">
+      <h3 className="text-lg font-semibold">{parentProduct.name}</h3>
+
+      {Object.entries(availableAttributes).map(([attributeName, attributeData]) => (
+        <div key={attributeName} className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            {attributeData.displayName}
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            {attributeData.values.map((value: any) => {
+              const isSelected = selectedAttributes[attributeName] === value.value;
+
+              return (
+                <button
+                  key={value.value}
+                  onClick={() => handleAttributeSelect(attributeName, value.value)}
+                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                    isSelected
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                  }`}
+                  style={value.colorCode ? {
+                    borderLeftColor: value.colorCode,
+                    borderLeftWidth: '4px'
+                  } : {}}
+                >
+                  {value.displayValue}
+                  {value.colorCode && (
+                    <span
+                      className="inline-block w-3 h-3 rounded-full ml-2"
+                      style={{ backgroundColor: value.colorCode }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Karta varianty produktu
+```tsx
+// components/VariantCard.tsx
+interface VariantCardProps {
+  variant: ProductVariant;
+  onAddToCart: (variant: ProductVariant, quantity: number) => void;
+}
+
+export default function VariantCard({ variant, onAddToCart }: VariantCardProps) {
+  const [quantity, setQuantity] = useState(1);
+
+  return (
+    <div className="variant-card bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h4 className="text-lg font-semibold text-gray-900">
+            {variant.variantDisplayName}
+          </h4>
+          <p className="text-sm text-gray-600 mt-1">
+            SKU: {variant.variantSku}
+          </p>
+        </div>
+
+        <div className="text-right">
+          <p className="text-2xl font-bold text-green-600">
+            {variant.priceDecimal} CZK
+          </p>
+          {variant.hasBulkPricing && (
+            <p className="text-xs text-gray-500">
+              od {variant.priceForQuantity(12)} CZK při 12+ ks
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Variant attributes */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {variant.flavor && (
+          <span
+            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800"
+            style={variant.flavor.colorCode ? {
+              backgroundColor: variant.flavor.colorCode + '20',
+              color: variant.flavor.colorCode
+            } : {}}
+          >
+            🍓 {variant.flavor.displayValue}
+          </span>
+        )}
+
+        {variant.size && (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            📦 {variant.size.displayValue}
+          </span>
+        )}
+
+        {variant.color && (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            <span
+              className="w-3 h-3 rounded-full mr-1"
+              style={{ backgroundColor: variant.color.colorCode }}
+            />
+            {variant.color.displayValue}
+          </span>
+        )}
+      </div>
+
+      {/* Stock status */}
+      <div className="mb-4">
+        {variant.inStock ? (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            ✅ Skladem ({variant.quantity} ks)
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            ❌ Vyprodáno
+          </span>
+        )}
+      </div>
+
+      {/* Quantity selector and add to cart */}
+      {variant.inStock && (
+        <div className="flex items-center gap-4">
+          <div className="flex items-center border border-gray-300 rounded-lg">
+            <button
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="px-3 py-2 text-gray-600 hover:text-gray-800"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              min="1"
+              max={variant.quantity}
+              className="w-16 px-3 py-2 text-center border-l border-r border-gray-300 focus:outline-none"
+            />
+            <button
+              onClick={() => setQuantity(Math.min(variant.quantity, quantity + 1))}
+              className="px-3 py-2 text-gray-600 hover:text-gray-800"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            onClick={() => onAddToCart(variant, quantity)}
+            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Přidat do košíku
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Grid variant produktů
+```tsx
+// components/VariantGrid.tsx
+interface VariantGridProps {
+  parentProduct: {
+    id: string;
+    name: string;
+    variants: ProductVariant[];
+  };
+  onAddToCart: (variant: ProductVariant, quantity: number) => void;
+}
+
+export default function VariantGrid({ parentProduct, onAddToCart }: VariantGridProps) {
+  return (
+    <div className="variant-grid">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">{parentProduct.name}</h2>
+        <p className="text-gray-600 mt-2">
+          {parentProduct.variants.length} variant{parentProduct.variants.length !== 1 ? 'y' : 'a'} k dispozici
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {parentProduct.variants.map((variant) => (
+          <VariantCard
+            key={variant.id}
+            variant={variant}
+            onAddToCart={onAddToCart}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### Mutation pro vytvoření varianty
+```typescript
+// mutations/variants.ts
+const CREATE_PRODUCT_VARIANT = gql`
+  mutation CreateProductVariant(
+    $parentProductId: ID!
+    $variantAttributes: JSON!
+    $priceCents: Int!
+    $quantity: Int!
+    $description: String
+    $weightValue: Float
+    $weightUnit: String
+  ) {
+    createProductVariant(
+      parentProductId: $parentProductId
+      variantAttributes: $variantAttributes
+      priceCents: $priceCents
+      quantity: $quantity
+      description: $description
+      weightValue: $weightValue
+      weightUnit: $weightUnit
+    ) {
+      variant {
+        id
+        name
+        variantDisplayName
+        variantSku
+        priceDecimal
+        quantity
+        inStock
+
+        flavor {
+          displayValue
+          colorCode
+        }
+
+        size {
+          displayValue
+        }
+
+        parentProduct {
+          id
+          name
+        }
+      }
+      errors
+    }
+  }
+`;
+
+// Použití v komponentě
+function CreateVariantForm({ parentProductId, onSuccess }) {
+  const [createVariant] = useMutation(CREATE_PRODUCT_VARIANT);
+
+  const handleSubmit = async (formData) => {
+    try {
+      const { data } = await createVariant({
+        variables: {
+          parentProductId,
+          variantAttributes: {
+            flavor: formData.flavorId,
+            size: formData.sizeId
+          },
+          priceCents: formData.priceCents,
+          quantity: formData.quantity,
+          description: formData.description,
+          weightValue: formData.weightValue,
+          weightUnit: formData.weightUnit
+        }
+      });
+
+      if (data.createProductVariant.errors.length === 0) {
+        onSuccess(data.createProductVariant.variant);
+      } else {
+        // Handle errors
+        console.error(data.createProductVariant.errors);
+      }
+    } catch (error) {
+      console.error('Error creating variant:', error);
+    }
+  };
+
+  // ... form rendering
+}
+```
+
+### CSS Styles pro variants
+```css
+/* styles/variants.css */
+.variant-selector {
+  @apply space-y-6;
+}
+
+.variant-card {
+  @apply bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow;
+}
+
+.variant-card--selected {
+  @apply border-blue-500 bg-blue-50;
+}
+
+.variant-attribute-badge {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.variant-attribute-badge--flavor {
+  @apply bg-pink-100 text-pink-800;
+}
+
+.variant-attribute-badge--size {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.variant-attribute-badge--color {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.variant-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+.variant-selector-button {
+  @apply px-4 py-2 rounded-lg border-2 transition-all cursor-pointer;
+}
+
+.variant-selector-button:hover {
+  @apply border-gray-400;
+}
+
+.variant-selector-button--selected {
+  @apply border-blue-500 bg-blue-50 text-blue-700;
+}
+
+.variant-color-indicator {
+  @apply inline-block w-3 h-3 rounded-full;
 }
 ```
 

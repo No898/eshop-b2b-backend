@@ -2,6 +2,8 @@
 
 module Types
   class ProductType < Types::BaseObject
+    include ProductVariantFields
+
     description 'Produkt v e-shopu'
 
     field :id, ID, null: false, description: 'Unikátní ID produktu'
@@ -34,6 +36,25 @@ module Types
     # Helper field pro frontend - cena jako decimal
     field :price_decimal, Float, null: false, description: 'Cena jako desetinné číslo'
 
+    # BULK PRICING - Množstevní slevy
+    field :price_tiers, [Types::ProductPriceTierType], null: false, description: 'Cenové úrovně pro množstevní slevy'
+    field :has_bulk_pricing, Boolean, null: false, description: 'Má produkt množstevní slevy?'
+    field :price_for_quantity, Float, null: false do
+      argument :quantity, Integer, required: true
+      description 'Cena za kus při daném množství'
+    end
+    field :bulk_savings_for_quantity, Float, null: false do
+      argument :quantity, Integer, required: true
+      description 'Procento úspory při daném množství'
+    end
+
+    # Additional variant fields not in concern
+    field :variant_sort_order, Integer, null: false, description: 'Pořadí varianty'
+    field :variant_attributes, [Types::VariantAttributeType], null: false, description: 'Atributy variant'
+    field :has_flavor, Boolean, null: false, description: 'Má produkt příchuť?'
+    field :has_size, Boolean, null: false, description: 'Má produkt velikost?'
+    field :has_color, Boolean, null: false, description: 'Má produkt barvu?'
+
     # INVENTORY METHODS - Business logika inventory
     def price_decimal
       object.price
@@ -48,6 +69,36 @@ module Types
 
     def ingredients_present
       object.ingredients?
+    end
+
+    # BULK PRICING METHODS
+    def price_tiers
+      object.available_price_tiers
+    end
+
+    def has_bulk_pricing # rubocop:disable Naming/PredicatePrefix
+      object.bulk_pricing?
+    end
+
+    def price_for_quantity(quantity:)
+      object.price_for_quantity(quantity)
+    end
+
+    def bulk_savings_for_quantity(quantity:)
+      object.bulk_savings_for_quantity(quantity)
+    end
+
+    # Additional variant methods
+    def has_flavor # rubocop:disable Naming/PredicatePrefix
+      object.flavor?
+    end
+
+    def has_size # rubocop:disable Naming/PredicatePrefix
+      object.size?
+    end
+
+    def has_color # rubocop:disable Naming/PredicatePrefix
+      object.color?
     end
 
     # Image fields pro Next.js

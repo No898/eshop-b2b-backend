@@ -170,6 +170,7 @@ field :email, String, null: false
 field :role, String, null: false              # "customer" | "admin"
 field :company_name, String, null: true
 field :orders, [OrderType], null: false       # Association
+field :addresses, [AddressType], null: false  # Address management
 ```
 
 ### OrderType
@@ -182,6 +183,97 @@ field :is_pending, Boolean, null: false       # Computed field
 field :items_count, Integer, null: false      # Computed field
 field :order_items, [OrderItemType], null: false
 ```
+
+### AddressType (✨ Nové - B2B Address Management)
+```ruby
+field :id, ID, null: false
+field :address_type, String, null: false, description: "Typ adresy: billing nebo shipping"
+field :street, String, null: false, description: "Ulice a číslo popisné"
+field :city, String, null: false, description: "Město"
+field :postal_code, String, null: false, description: "PSČ ve formátu '123 45'"
+field :country, String, null: false, description: "Kód země (CZ, SK, atd.)"
+field :company_name, String, null: true, description: "Název firmy (pouze pro billing)"
+field :company_vat_id, String, null: true, description: "DIČ ve formátu CZ12345678"
+field :company_registration_id, String, null: true, description: "IČO - 8 číslic"
+field :is_default, Boolean, null: false, description: "Výchozí adresa pro daný typ"
+field :created_at, GraphQL::Types::ISO8601DateTime, null: false
+field :updated_at, GraphQL::Types::ISO8601DateTime, null: false
+```
+
+#### 🇨🇿 České B2B specifika
+- **IČO** (`company_registration_id`) - identifikační číslo osoby, přesně 8 číslic
+- **DIČ** (`company_vat_id`) - daňové identifikační číslo, formát CZ + 8-10 číslic
+- **PSČ** (`postal_code`) - poštovní směrovací číslo, automaticky formátováno jako "123 45"
+
+#### 📋 Business pravidla pro adresy
+1. **Billing adresa** - může obsahovat firemní údaje (IČO, DIČ)
+2. **Shipping adresa** - pouze základní adresní údaje
+3. **Default flag** - každý uživatel může mít jednu výchozí billing a jednu výchozí shipping adresu
+4. **Validace** - IČO musí mít 8 číslic, DIČ musí začínat "CZ" + 8-10 číslic
+
+### ProductPriceTierType (✨ Nové - Bulk Pricing System)
+```ruby
+field :id, ID, null: false
+field :tier_name, String, null: false, description: "Název cenové úrovně (1ks, 1bal, 10bal)"
+field :min_quantity, Integer, null: false, description: "Minimální množství pro tuto cenu"
+field :max_quantity, Integer, null: true, description: "Maximální množství (null = neomezeno)"
+field :price_cents, Integer, null: false, description: "Cena v haléřích"
+field :price_decimal, Float, null: false, description: "Cena v korunách (pro frontend)"
+field :currency, String, null: false, description: "Měna (CZK, EUR)"
+field :description, String, null: true, description: "Popis cenové úrovně"
+field :active, Boolean, null: false, description: "Zda je cenová úroveň aktivní"
+field :quantity_range_description, String, null: false, description: "Popis rozsahu množství"
+field :savings_percentage, Float, null: false, description: "Procento úspory oproti základní ceně"
+```
+
+#### 🏷️ Bulk pricing specifika
+- **Tier Names** - 1ks (retail), 1bal (balení), 10bal (kartón), custom (vlastní)
+- **Dynamic Pricing** - frontend dostává nejlepší cenu pro dané množství
+- **B2B slevy** - typicky 10-20% úspora při bulk nákupech
+- **Real-time calculation** - ceny se počítají podle aktuálního množství
+
+### VariantAttributeType (✨ Nové - Product Variants System)
+```ruby
+field :id, ID, null: false
+field :name, String, null: false, description: "Systémový název atributu (flavor, size, color)"
+field :display_name, String, null: false, description: "Zobrazovaný název (Příchuť, Velikost, Barva)"
+field :description, String, null: true, description: "Popis atributu"
+field :sort_order, Integer, null: false, description: "Pořadí řazení"
+field :active, Boolean, null: false, description: "Zda je atribut aktivní"
+field :values, [VariantAttributeValueType], null: false, description: "Hodnoty atributu"
+field :active_values, [VariantAttributeValueType], null: false, description: "Aktivní hodnoty"
+field :values_count, Integer, null: false, description: "Počet aktivních hodnot"
+field :is_flavor, Boolean, null: false, description: "Je atribut příchuť?"
+field :is_size, Boolean, null: false, description: "Je atribut velikost?"
+field :is_color, Boolean, null: false, description: "Je atribut barva?"
+```
+
+### VariantAttributeValueType (✨ Nové - Product Variants System)
+```ruby
+field :id, ID, null: false
+field :value, String, null: false, description: "Systémová hodnota (strawberry, large, red)"
+field :display_value, String, null: false, description: "Zobrazovaná hodnota (Jahoda, Velká, Červená)"
+field :color_code, String, null: true, description: "Hex kód barvy (#FF0000)"
+field :description, String, null: true, description: "Popis hodnoty"
+field :sort_order, Integer, null: false, description: "Pořadí řazení"
+field :active, Boolean, null: false, description: "Zda je hodnota aktivní"
+field :variant_attribute, VariantAttributeType, null: false, description: "Atribut ke kterému patří"
+field :products_count, Integer, null: false, description: "Počet produktů s touto hodnotou"
+field :attribute_name, String, null: false, description: "Název atributu"
+field :attribute_display_name, String, null: false, description: "Zobrazovaný název atributu"
+field :has_color, Boolean, null: false, description: "Má hodnota barvu?"
+field :is_flavor, Boolean, null: false, description: "Je to příchuť?"
+field :is_size, Boolean, null: false, description: "Je to velikost?"
+field :is_color, Boolean, null: false, description: "Je to barva?"
+field :display_with_attribute, String, null: false, description: "Zobrazení s atributem (Příchuť: Jahoda)"
+```
+
+#### 🎨 Product variants specifika
+- **Hierarchická struktura** - parent produkty → variant produkty
+- **Flexible atributy** - libovolné kombinace příchutí, velikostí, barev
+- **Automatic SKU generation** - formát: 0001-STR-MED (parent-flavor-size)
+- **Independent pricing** - každá varianta má vlastní cenu + bulk pricing
+- **Czech B2B terminology** - české názvy atributů a hodnot
 
 ---
 
@@ -197,6 +289,236 @@ query GetProducts {
     priceDecimal
     currency
     available
+  }
+}
+```
+
+### Produkty s bulk pricing (✨ Nové)
+```graphql
+query GetProductsWithBulkPricing {
+  products {
+    id
+    name
+    priceDecimal
+    hasBulkPricing
+
+    # Cenové úrovně
+    priceTiers {
+      id
+      tierName
+      minQuantity
+      maxQuantity
+      priceDecimal
+      quantityRangeDescription
+      savingsPercentage
+      description
+    }
+
+    # Dynamické ceny podle množství
+    priceForQuantity(quantity: 1)
+    priceForQuantity(quantity: 12)
+    priceForQuantity(quantity: 120)
+
+    # Úspory při bulk nákupu
+    bulkSavingsForQuantity(quantity: 12)
+    bulkSavingsForQuantity(quantity: 120)
+  }
+}
+```
+
+### Real-time pricing calculator
+```graphql
+query GetProductPricing($productId: ID!, $quantity: Int!) {
+  product(id: $productId) {
+    id
+    name
+    basePrice: priceDecimal
+    currentPrice: priceForQuantity(quantity: $quantity)
+    savings: bulkSavingsForQuantity(quantity: $quantity)
+
+    # Nejlepší tier pro dané množství
+    applicableTier: priceTiers {
+      tierName
+      priceDecimal
+      quantityRangeDescription
+    }
+  }
+}
+```
+
+### Produkty s variantami (✨ Nové)
+```graphql
+query GetProductsWithVariants {
+  products {
+    id
+    name
+    priceDecimal
+    isVariantParent
+    isVariantChild
+    hasVariants
+    variantsCount
+
+    # Pro parent produkty
+    variants {
+      id
+      name
+      variantDisplayName
+      priceDecimal
+      quantity
+      inStock
+      variantSku
+
+      # Atributy variant
+      flavor {
+        displayValue
+        colorCode
+      }
+      size {
+        displayValue
+      }
+      color {
+        displayValue
+        colorCode
+      }
+
+      # Bulk pricing pro varianty
+      hasBulkPricing
+      priceForQuantity(quantity: 1)
+      priceForQuantity(quantity: 12)
+      priceForQuantity(quantity: 120)
+    }
+
+    # Pro variant produkty
+    parentProduct {
+      id
+      name
+    }
+
+    variantAttributeValues {
+      attributeName
+      attributeDisplayName
+      displayValue
+      colorCode
+    }
+  }
+}
+```
+
+### Variant attributes a values
+```graphql
+query GetVariantAttributes {
+  variantAttributes {
+    id
+    name
+    displayName
+    description
+    sortOrder
+    isFlavor
+    isSize
+    isColor
+    valuesCount
+
+    activeValues {
+      id
+      value
+      displayValue
+      colorCode
+      description
+      sortOrder
+      productsCount
+    }
+  }
+}
+```
+
+### Konkrétní příchutě, velikosti, barvy
+```graphql
+query GetFlavorsSizesColors {
+  flavors {
+    id
+    value
+    displayValue
+    colorCode
+    description
+    productsCount
+  }
+
+  sizes {
+    id
+    value
+    displayValue
+    description
+    productsCount
+  }
+
+  colors {
+    id
+    value
+    displayValue
+    colorCode
+    productsCount
+  }
+}
+```
+
+### Uživatelské adresy (✨ Nové)
+```graphql
+query GetUserAddresses {
+  currentUser {
+    id
+    email
+    addresses {
+      id
+      addressType
+      street
+      city
+      postalCode
+      country
+      companyName
+      companyVatId         # DIČ
+      companyRegistrationId # IČO
+      isDefault
+      createdAt
+    }
+  }
+}
+```
+
+### Filtrování adres podle typu
+```graphql
+query GetBillingAddresses {
+  currentUser {
+    addresses(type: "billing") {
+      id
+      street
+      city
+      postalCode
+      companyName
+      companyVatId
+      companyRegistrationId
+      isDefault
+    }
+  }
+}
+```
+
+### Výchozí adresy uživatele
+```graphql
+query GetDefaultAddresses {
+  currentUser {
+    defaultBillingAddress {
+      id
+      street
+      city
+      companyName
+      companyVatId
+    }
+    defaultShippingAddress {
+      id
+      street
+      city
+      # shipping nemá firemní údaje
+    }
   }
 }
 ```
@@ -331,6 +653,69 @@ mutation CreateOrder {
         product {
           name
         }
+      }
+    }
+    errors
+  }
+}
+```
+
+### Vytvoření cenové úrovně (✨ Nové - Bulk Pricing)
+```graphql
+mutation CreatePriceTier {
+  createPriceTier(
+    productId: "1"
+    tierName: "1bal"
+    minQuantity: 12
+    maxQuantity: 119
+    priceCents: 22000
+    description: "Balení 12 kusů - úspora 12%"
+  ) {
+    priceTier {
+      id
+      tierName
+      quantityRangeDescription
+      priceDecimal
+      savingsPercentage
+    }
+    errors
+  }
+}
+```
+
+### Vytvoření variant produktu (✨ Nové - Product Variants)
+```graphql
+mutation CreateProductVariant {
+  createProductVariant(
+    parentProductId: "1"
+    variantAttributes: {
+      flavor: 5,    # ID of strawberry flavor
+      size: 2       # ID of medium size
+    }
+    priceCents: 26000
+    quantity: 50
+    description: "Praskající kuličky s příchutí jahoda - balení 3kg"
+    weightValue: 3.0
+    weightUnit: "kg"
+  ) {
+    variant {
+      id
+      name
+      variantDisplayName
+      variantSku
+      priceDecimal
+      quantity
+
+      flavor {
+        displayValue
+        colorCode
+      }
+      size {
+        displayValue
+      }
+
+      parentProduct {
+        name
       }
     }
     errors
