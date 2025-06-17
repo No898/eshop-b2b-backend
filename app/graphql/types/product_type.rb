@@ -2,7 +2,7 @@
 
 module Types
   class ProductType < Types::BaseObject
-    include ProductVariantFields
+    include Types::ProductVariantFields
 
     description 'Produkt v e-shopu'
 

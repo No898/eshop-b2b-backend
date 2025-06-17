@@ -12,6 +12,7 @@ Kompletní návod jak používat naše GraphQL API ve frontend aplikaci + UI tip
 - [📍 Address Management](#-address-management)
 - [🏷️ Bulk Pricing System](#️-bulk-pricing-system)
 - [🎨 Product Variants System](#-product-variants-system)
+- [📚 Docusaurus Documentation](#-docusaurus-documentation)
 - [❌ Error Handling](#-error-handling)
 - [💳 Payment Errors](#-payment-errors)
 - [🔧 TypeScript Setup](#-typescript-setup)
@@ -2344,6 +2345,231 @@ function CreateVariantForm({ parentProductId, onSuccess }) {
   @apply inline-block w-3 h-3 rounded-full;
 }
 ```
+
+---
+
+## 📚 Docusaurus Documentation
+
+### Moderní dokumentační systém pro B2B API
+Pro komplexní dokumentaci našeho B2B API a frontend komponent používáme **Docusaurus v3** - moderní static site generator od Meta.
+
+#### 🏗️ Struktura dokumentace
+```
+docs/
+├── docusaurus.config.js     # Konfigurace Docusaurus
+├── package.json             # Dependencies
+├── docs/                    # Markdown dokumenty
+│   ├── intro.md            # Úvodní stránka
+│   ├── api/                # API dokumentace
+│   │   ├── graphql.md      # GraphQL schema a queries
+│   │   ├── mutations.md    # Mutations a examples
+│   │   └── types.md        # TypeScript types
+│   ├── components/         # React komponenty
+│   │   ├── products.md     # Product komponenty
+│   │   ├── variants.md     # Variant komponenty
+│   │   └── bulk-pricing.md # Bulk pricing komponenty
+│   └── guides/             # Návody a tutoriály
+│       ├── setup.md        # Nastavení projektu
+│       ├── authentication.md # Auth flow
+│       └── deployment.md   # Deployment guide
+├── src/                    # Custom React komponenty
+│   ├── components/         # Reusable komponenty
+│   ├── css/               # Custom CSS
+│   └── pages/             # Custom stránky
+└── static/                # Statické soubory
+    ├── img/               # Obrázky a loga
+    └── api/               # API examples
+```
+
+#### 🚀 Výhody Docusaurus pro B2B projekt
+- **Automatické API docs** - generování z GraphQL schema
+- **Interaktivní examples** - live code examples s GraphQL Playground
+- **Versioning** - dokumentace pro různé verze API
+- **Search** - pokročilé vyhledávání v dokumentaci
+- **Dark/Light mode** - pro lepší UX
+- **Mobile responsive** - dokumentace dostupná všude
+- **Czech localization** - podpora češtiny
+
+#### 📦 Instalace a setup
+```bash
+# Vytvoření Docusaurus projektu
+npx create-docusaurus@latest docs classic --typescript
+
+# Instalace additional packages
+cd docs
+npm install @docusaurus/theme-live-codeblock
+npm install @graphql-tools/schema
+npm install graphql-playground-react
+```
+
+#### ⚙️ Konfigurace pro B2B API
+```javascript
+// docusaurus.config.js
+module.exports = {
+  title: 'Lootea B2B API Documentation',
+  tagline: 'Complete B2B e-commerce API with GraphQL',
+  url: 'https://api-docs.lootea.cz',
+  baseUrl: '/',
+
+  themeConfig: {
+    navbar: {
+      title: 'Lootea B2B API',
+      items: [
+        {
+          type: 'doc',
+          docId: 'intro',
+          position: 'left',
+          label: 'Dokumentace',
+        },
+        {
+          to: '/api/playground',
+          label: 'GraphQL Playground',
+          position: 'left',
+        },
+        {
+          href: 'https://github.com/lootea/b2b-backend',
+          label: 'GitHub',
+          position: 'right',
+        },
+      ],
+    },
+
+    prism: {
+      theme: require('prism-react-renderer/themes/github'),
+      darkTheme: require('prism-react-renderer/themes/dracula'),
+      additionalLanguages: ['graphql', 'typescript', 'bash'],
+    },
+
+    liveCodeBlock: {
+      playgroundPosition: 'bottom',
+    },
+  },
+
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        routeBasePath: '/',
+        sidebarPath: require.resolve('./sidebars.js'),
+      },
+    ],
+  ],
+};
+```
+
+#### 🎨 Custom komponenty pro API docs
+```tsx
+// src/components/GraphQLExample.tsx
+import React from 'react';
+import CodeBlock from '@theme/CodeBlock';
+
+interface GraphQLExampleProps {
+  query: string;
+  variables?: object;
+  response?: object;
+}
+
+export default function GraphQLExample({ query, variables, response }: GraphQLExampleProps) {
+  return (
+    <div className="graphql-example">
+      <div className="query-section">
+        <h4>Query</h4>
+        <CodeBlock language="graphql">{query}</CodeBlock>
+      </div>
+
+      {variables && (
+        <div className="variables-section">
+          <h4>Variables</h4>
+          <CodeBlock language="json">{JSON.stringify(variables, null, 2)}</CodeBlock>
+        </div>
+      )}
+
+      {response && (
+        <div className="response-section">
+          <h4>Response</h4>
+          <CodeBlock language="json">{JSON.stringify(response, null, 2)}</CodeBlock>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+#### 📝 Markdown dokumenty s live examples
+```markdown
+---
+sidebar_position: 1
+title: Product Variants API
+---
+
+# Product Variants
+
+Náš API podporuje sofistikovaný systém variant produktů.
+
+## Získání produktů s variantami
+
+<GraphQLExample
+  query={`
+    query GetProductsWithVariants {
+      products {
+        id
+        name
+        isVariantParent
+        variants {
+          id
+          variantDisplayName
+          priceDecimal
+          flavor {
+            displayValue
+            colorCode
+          }
+        }
+      }
+    }
+  `}
+  response={{
+    "data": {
+      "products": [
+        {
+          "id": "1",
+          "name": "Popping Pearls",
+          "isVariantParent": true,
+          "variants": [
+            {
+              "id": "2",
+              "variantDisplayName": "Popping Pearls - Jahoda Střední",
+              "priceDecimal": 250.0,
+              "flavor": {
+                "displayValue": "Jahoda",
+                "colorCode": "#FF6B6B"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }}
+/>
+```
+
+#### 🌐 Deployment na Vercel/Netlify
+```bash
+# Build dokumentace
+npm run build
+
+# Deploy na Vercel
+npx vercel --prod
+
+# Deploy na Netlify
+npm run build && npx netlify deploy --prod --dir=build
+```
+
+#### 💡 Tip pro lepší UX
+- **Auto-refresh** při změnách v API
+- **Copy-paste examples** - jednoduchý copy GraphQL queries
+- **Interactive playground** - testování API přímo v docs
+- **Changelog** - automatické generování z git commits
+- **API status** - real-time status API endpointů
 
 ---
 
