@@ -26,10 +26,10 @@ module Types
     field :weight_unit, String, null: true, description: 'Jednotka hmotnosti/objemu (kg/g/l/ml)'
     field :formatted_weight, String, null: true, description: 'Formátovaná hmotnost (např. "2.5 kg")'
     field :ingredients, String, null: true, description: 'Složení produktu'
-    field :has_weight_info, Boolean, null: false, description: 'Má produkt informace o hmotnosti?'
-    field :has_ingredients, Boolean, null: false, description: 'Má produkt uvedené složení?'
-    field :is_liquid, Boolean, null: false, description: 'Je produkt tekutý?'
-    field :is_solid, Boolean, null: false, description: 'Je produkt pevný?'
+    field :weight_info, Boolean, null: false, description: 'Má produkt informace o hmotnosti?'
+    field :ingredients_present, Boolean, null: false, description: 'Má produkt uvedené složení?'
+    field :liquid, Boolean, null: false, description: 'Je produkt tekutý?'
+    field :solid, Boolean, null: false, description: 'Je produkt pevný?'
 
     # Helper field pro frontend - cena jako decimal
     field :price_decimal, Float, null: false, description: 'Cena jako desetinné číslo'
@@ -44,6 +44,10 @@ module Types
       return 'low_stock' if object.low_stock?
 
       'in_stock'
+    end
+
+    def ingredients_present
+      object.ingredients?
     end
 
     # Image fields pro Next.js
