@@ -1,0 +1,16 @@
+cs:
+  # Základní překlady pro českou lokalizaci
+  hello: "Ahoj"
+
+  # Rails defaults
+  date:
+    formats:
+      default: "%d.%m.%Y"
+      short: "%d %b"
+      long: "%d. %B %Y"
+
+  time:
+    formats:
+      default: "%a %d. %B %Y %H:%M:%S"
+      short: "%d %b %H:%M"
+      long: "%A, %d. %B %Y %H:%M"
