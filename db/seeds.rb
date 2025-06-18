@@ -8,6 +8,39 @@
 # with its default values.
 # The data can then be loaded with the bin/rails db:seed command
 
+# Helper methods for variant creation
+def create_or_find_variant(parent_product, variant_data, index)
+  attr_values = variant_data[:attributes].values.sort.join('-')
+  variant_identifier = "popping-#{attr_values}"
+
+  existing_variant = parent_product.variants.find_by(variant_sku: variant_identifier)
+
+  if existing_variant
+    Rails.logger.debug { "  ⚠️  Variant already exists: #{existing_variant.variant_display_name}" }
+    existing_variant
+  else
+    parent_product.create_variant!(
+      variant_data[:attributes],
+      variant_data[:product].merge(variant_sort_order: index + 1, variant_sku: variant_identifier)
+    )
+  end
+end
+
+def create_variant_bulk_pricing(variant)
+  [
+    { tier_name: '1ks', min_quantity: 1, max_quantity: 11, price_cents: variant.price_cents,
+      description: 'Jednotlivé balení' },
+    { tier_name: '1bal', min_quantity: 12, max_quantity: 119, price_cents: (variant.price_cents * 0.88).to_i,
+      description: 'Balení 12 kusů - úspora 12%' },
+    { tier_name: '10bal', min_quantity: 120, max_quantity: nil, price_cents: (variant.price_cents * 0.8).to_i,
+      description: 'Kartón 120+ kusů - úspora 20%' }
+  ].each do |tier_attrs|
+    variant.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+      t.assign_attributes(tier_attrs)
+    end
+  end
+end
+
 # Create admin user
 admin = User.find_or_create_by!(email: 'admin@lootea.cz') do |user|
   user.password = 'password123'
@@ -247,38 +280,6 @@ variants_data.each_with_index do |variant_data, index|
 
   Rails.logger.debug do
     "  ✅ #{variant.variant_display_name} - #{variant.formatted_price} (SKU: #{variant.variant_sku})"
-  end
-end
-
-def create_or_find_variant(parent_product, variant_data, index)
-  attr_values = variant_data[:attributes].values.sort.join('-')
-  variant_identifier = "popping-#{attr_values}"
-
-  existing_variant = parent_product.variants.find_by(variant_sku: variant_identifier)
-
-  if existing_variant
-    Rails.logger.debug { "  ⚠️  Variant already exists: #{existing_variant.variant_display_name}" }
-    existing_variant
-  else
-    parent_product.create_variant!(
-      variant_data[:attributes],
-      variant_data[:product].merge(variant_sort_order: index + 1, variant_sku: variant_identifier)
-    )
-  end
-end
-
-def create_variant_bulk_pricing(variant)
-  [
-    { tier_name: '1ks', min_quantity: 1, max_quantity: 11, price_cents: variant.price_cents,
-      description: 'Jednotlivé balení' },
-    { tier_name: '1bal', min_quantity: 12, max_quantity: 119, price_cents: (variant.price_cents * 0.88).to_i,
-      description: 'Balení 12 kusů - úspora 12%' },
-    { tier_name: '10bal', min_quantity: 120, max_quantity: nil, price_cents: (variant.price_cents * 0.8).to_i,
-      description: 'Kartón 120+ kusů - úspora 20%' }
-  ].each do |tier_attrs|
-    variant.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
-      t.assign_attributes(tier_attrs)
-    end
   end
 end
 

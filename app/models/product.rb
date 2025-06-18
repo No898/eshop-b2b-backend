@@ -3,6 +3,9 @@
 class Product < ApplicationRecord
   include ProductSpecifications
   include ProductVariants
+  include ProductPricing
+  include ProductInventory
+  include ProductImages
 
   # Associations
   has_many :order_items, dependent: :destroy
@@ -33,73 +36,6 @@ class Product < ApplicationRecord
   before_save :ensure_variant_consistency
   after_create :create_default_bulk_pricing, if: :should_create_default_pricing?
 
-  # PRICING METHODS
-  def price_decimal
-    price_cents / 100.0
-  end
-
-  def formatted_price
-    "#{price_decimal} #{currency}"
-  end
-
-  def price_for_quantity(quantity)
-    return price_decimal if quantity <= 1
-
-    applicable_tier = price_tiers.active
-                                 .where(min_quantity: ..quantity)
-                                 .where('max_quantity IS NULL OR max_quantity >= ?', quantity)
-                                 .order(:min_quantity)
-                                 .last
-
-    applicable_tier&.price_decimal || price_decimal
-  end
-
-  def bulk_savings_for_quantity(quantity)
-    base_price = price_decimal
-    bulk_price = price_for_quantity(quantity)
-    return 0 if base_price == bulk_price
-
-    ((base_price - bulk_price) / base_price * 100).round(1)
-  end
-
-  def bulk_pricing?
-    price_tiers.exists?
-  end
-
-  # STOCK METHODS
-  def in_stock?
-    quantity.positive?
-  end
-
-  def low_stock?(threshold = 10)
-    quantity <= threshold && quantity.positive?
-  end
-
-  def out_of_stock?
-    quantity <= 0
-  end
-
-  def reserve_stock!(quantity_to_reserve)
-    if quantity < quantity_to_reserve
-      raise InsufficientStockError, "Insufficient stock. Available: #{quantity}, requested: #{quantity_to_reserve}"
-    end
-
-    update!(quantity: quantity - quantity_to_reserve)
-  end
-
-  def release_stock!(quantity_to_release)
-    update!(quantity: quantity + quantity_to_release)
-  end
-
-  # IMAGE METHODS
-  def images?
-    images.attached?
-  end
-
-  def primary_image
-    images.first
-  end
-
   private
 
   def ensure_variant_consistency
@@ -112,30 +48,6 @@ class Product < ApplicationRecord
 
     errors.add(:is_variant_parent, 'must be true if product has variants')
     throw :abort
-  end
-
-  def should_create_default_pricing?
-    price_cents.present? && price_tiers.empty?
-  end
-
-  def create_default_bulk_pricing
-    # 12% sleva pro 12+ kusů
-    price_tiers.create!(
-      tier_name: '1bal',
-      min_quantity: 12,
-      max_quantity: 119,
-      price_cents: (price_cents * 0.88).round,
-      description: 'Balení 12 kusů - úspora 12%'
-    )
-
-    # 20% sleva pro 120+ kusů
-    price_tiers.create!(
-      tier_name: '10bal',
-      min_quantity: 120,
-      max_quantity: nil,
-      price_cents: (price_cents * 0.80).round,
-      description: 'Kartón 120 kusů - úspora 20%'
-    )
   end
 
   class InsufficientStockError < StandardError; end

@@ -2,7 +2,7 @@
 
 module Mutations
   class CreateProductVariant < BaseMutation
-    include VariantProcessing
+    include Mutations::Concerns::VariantProcessing
 
     description 'Vytvoří novou variantu produktu s atributy'
 

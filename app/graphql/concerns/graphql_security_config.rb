@@ -27,8 +27,8 @@ module GraphqlSecurityConfig
     # SECURITY: Default pagination limit
     default_max_page_size(production_or_development_config(:max_page_size))
 
-    # SECURITY: Query timeout protection
-    query_execution_strategy(GraphQL::Execution::Interpreter)
+    # SECURITY: Query timeout protection (using default interpreter)
+    # Note: query_execution_strategy is deprecated in GraphQL 2.x+
   end
 
   class_methods do

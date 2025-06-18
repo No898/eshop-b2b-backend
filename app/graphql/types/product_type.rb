@@ -1,10 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'concerns/product_variant_fields'
-
 module Types
   class ProductType < Types::BaseObject
-    include Types::ProductVariantFields
+    include Types::Concerns::ProductVariantFields
 
     description 'Produkt v e-shopu'
 

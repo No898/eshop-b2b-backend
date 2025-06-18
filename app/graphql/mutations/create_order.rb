@@ -2,7 +2,7 @@
 
 module Mutations
   class CreateOrder < BaseMutation
-    include OrderProcessing
+    include Mutations::Concerns::OrderProcessing
 
     description 'Vytvořit novou objednávku'
 
