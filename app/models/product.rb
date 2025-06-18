@@ -15,7 +15,6 @@ class Product < ApplicationRecord
   validates :description, length: { maximum: 2000 }
   validates :price_cents, presence: true, numericality: { greater_than: 0 }
   validates :quantity, presence: true, numericality: { greater_than_or_equal_to: 0 }
-  validates :sku, uniqueness: { allow_blank: true }
   validates :variant_sku, uniqueness: { allow_blank: true }
 
   # Variant validations
