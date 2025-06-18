@@ -39,3 +39,8 @@
 postgres_data/
 *.sql
 dump.sql
+
+docs/node_modules
+docs/docusaurus.config.ts
+
+docs/package-lock.json
