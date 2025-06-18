@@ -52,7 +52,7 @@ module Types
     # Variant attributes queries
     field :variant_attributes, [Types::VariantAttributeType], null: false, description: 'Seznam všech atributů variant'
     def variant_attributes
-      VariantAttribute.active.ordered.with_values
+      VariantAttribute.active.ordered.with_attribute_values
     end
 
     field :variant_attribute_values, [Types::VariantAttributeValueType], null: false,

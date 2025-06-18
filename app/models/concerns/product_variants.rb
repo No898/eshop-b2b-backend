@@ -2,6 +2,7 @@
 
 module ProductVariants
   extend ActiveSupport::Concern
+  include ProductVariantCreation
 
   included do
     # Product variants relationships

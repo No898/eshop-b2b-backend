@@ -9,26 +9,24 @@
 # The data can then be loaded with the bin/rails db:seed command
 
 # Create admin user
-admin = User.create!(
-  email: 'admin@lootea.cz',
-  password: 'password123',
-  password_confirmation: 'password123',
-  role: 'admin',
-  company_name: 'Lootea s.r.o.',
-  vat_id: 'CZ12345678'
-)
+admin = User.find_or_create_by!(email: 'admin@lootea.cz') do |user|
+  user.password = 'password123'
+  user.password_confirmation = 'password123'
+  user.role = 'admin'
+  user.company_name = 'Lootea s.r.o.'
+  user.vat_id = 'CZ12345678'
+end
 
 Rails.logger.debug { "✅ Admin user created: #{admin.email}" }
 
 # Create sample customer
-customer = User.create!(
-  email: 'zakaznik@firma.cz',
-  password: 'password123',
-  password_confirmation: 'password123',
-  role: 'customer',
-  company_name: 'Testovací firma s.r.o.',
-  vat_id: 'CZ87654321'
-)
+customer = User.find_or_create_by!(email: 'zakaznik@firma.cz') do |user|
+  user.password = 'password123'
+  user.password_confirmation = 'password123'
+  user.role = 'customer'
+  user.company_name = 'Testovací firma s.r.o.'
+  user.vat_id = 'CZ87654321'
+end
 
 Rails.logger.debug { "✅ Customer created: #{customer.email}" }
 
@@ -86,7 +84,9 @@ products = [
 
 created_products = []
 products.each do |product_attrs|
-  product = Product.create!(product_attrs)
+  product = Product.find_or_create_by!(name: product_attrs[:name]) do |p|
+    p.assign_attributes(product_attrs)
+  end
   created_products << product
   Rails.logger.debug { "✅ Product created: #{product.name} (#{product.formatted_price})" }
 end
@@ -103,7 +103,9 @@ popping_pearls = created_products.first
   { tier_name: '10bal', min_quantity: 120, max_quantity: nil, price_cents: 20_000,
     description: 'Kartón 10 balení - úspora 20%' }
 ].each do |tier_attrs|
-  tier = popping_pearls.price_tiers.create!(tier_attrs)
+  tier = popping_pearls.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+    t.assign_attributes(tier_attrs)
+  end
   Rails.logger.debug { "  ✅ #{tier.tier_name}: #{tier.formatted_price} (#{tier.quantity_range_description})" }
 end
 
@@ -116,7 +118,9 @@ slamky = created_products[1]
   { tier_name: '10bal', min_quantity: 50, max_quantity: nil, price_cents: 6400,
     description: 'Kartón 50+ kusů - úspora 20%' }
 ].each do |tier_attrs|
-  tier = slamky.price_tiers.create!(tier_attrs)
+  tier = slamky.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+    t.assign_attributes(tier_attrs)
+  end
   Rails.logger.debug { "  ✅ #{tier.tier_name}: #{tier.formatted_price} (#{tier.quantity_range_description})" }
 end
 
@@ -129,7 +133,9 @@ perly = created_products[2]
   { tier_name: '10bal', min_quantity: 30, max_quantity: nil, price_cents: 12_000,
     description: 'Velkoobchodní cena - úspora 20%' }
 ].each do |tier_attrs|
-  tier = perly.price_tiers.create!(tier_attrs)
+  tier = perly.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+    t.assign_attributes(tier_attrs)
+  end
   Rails.logger.debug { "  ✅ #{tier.tier_name}: #{tier.formatted_price} (#{tier.quantity_range_description})" }
 end
 
@@ -142,7 +148,9 @@ syrup = created_products[3]
   { tier_name: '10bal', min_quantity: 12, max_quantity: nil, price_cents: 25_600,
     description: 'Paletová dodávka - úspora 20%' }
 ].each do |tier_attrs|
-  tier = syrup.price_tiers.create!(tier_attrs)
+  tier = syrup.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+    t.assign_attributes(tier_attrs)
+  end
   Rails.logger.debug { "  ✅ #{tier.tier_name}: #{tier.formatted_price} (#{tier.quantity_range_description})" }
 end
 
@@ -162,9 +170,9 @@ flavor_values = [
 ]
 
 flavor_values.each_with_index do |attrs, index|
-  value = flavor_attr.variant_attribute_values.create!(
-    attrs.merge(sort_order: index + 1)
-  )
+  value = flavor_attr.variant_attribute_values.find_or_create_by!(value: attrs[:value]) do |v|
+    v.assign_attributes(attrs.merge(sort_order: index + 1))
+  end
   Rails.logger.debug { "  ✅ Flavor: #{value.display_value} (#{value.color_code})" }
 end
 
@@ -177,9 +185,9 @@ size_values = [
 ]
 
 size_values.each_with_index do |attrs, index|
-  value = size_attr.variant_attribute_values.create!(
-    attrs.merge(sort_order: index + 1)
-  )
+  value = size_attr.variant_attribute_values.find_or_create_by!(value: attrs[:value]) do |v|
+    v.assign_attributes(attrs.merge(sort_order: index + 1))
+  end
   Rails.logger.debug { "  ✅ Size: #{value.display_value}" }
 end
 
@@ -234,12 +242,32 @@ variants_data = [
 ]
 
 variants_data.each_with_index do |variant_data, index|
-  variant = popping_parent.create_variant!(
-    variant_data[:attributes],
-    variant_data[:product].merge(variant_sort_order: index + 1)
-  )
+  variant = create_or_find_variant(popping_parent, variant_data, index)
+  create_variant_bulk_pricing(variant)
 
-  # Add bulk pricing to each variant
+  Rails.logger.debug do
+    "  ✅ #{variant.variant_display_name} - #{variant.formatted_price} (SKU: #{variant.variant_sku})"
+  end
+end
+
+def create_or_find_variant(parent_product, variant_data, index)
+  attr_values = variant_data[:attributes].values.sort.join('-')
+  variant_identifier = "popping-#{attr_values}"
+
+  existing_variant = parent_product.variants.find_by(variant_sku: variant_identifier)
+
+  if existing_variant
+    Rails.logger.debug { "  ⚠️  Variant already exists: #{existing_variant.variant_display_name}" }
+    existing_variant
+  else
+    parent_product.create_variant!(
+      variant_data[:attributes],
+      variant_data[:product].merge(variant_sort_order: index + 1, variant_sku: variant_identifier)
+    )
+  end
+end
+
+def create_variant_bulk_pricing(variant)
   [
     { tier_name: '1ks', min_quantity: 1, max_quantity: 11, price_cents: variant.price_cents,
       description: 'Jednotlivé balení' },
@@ -248,11 +276,9 @@ variants_data.each_with_index do |variant_data, index|
     { tier_name: '10bal', min_quantity: 120, max_quantity: nil, price_cents: (variant.price_cents * 0.8).to_i,
       description: 'Kartón 120+ kusů - úspora 20%' }
   ].each do |tier_attrs|
-    variant.price_tiers.create!(tier_attrs)
-  end
-
-  Rails.logger.debug do
-    "  ✅ #{variant.variant_display_name} - #{variant.formatted_price} (SKU: #{variant.variant_sku})"
+    variant.price_tiers.find_or_create_by!(tier_name: tier_attrs[:tier_name]) do |t|
+      t.assign_attributes(tier_attrs)
+    end
   end
 end
 
@@ -261,7 +287,7 @@ Rails.logger.debug { "📊 Created #{User.count} users, #{Product.count} product
 Rails.logger.debug do
   "🎨 Created #{VariantAttribute.count} variant attributes, #{VariantAttributeValue.count} variant values"
 end
-Rails.logger.debug { "🫧 Created #{Product.variants.count} product variants" }
+Rails.logger.debug { "🫧 Created #{Product.variant_children.count} product variants" }
 Rails.logger.debug "\n💡 Test features:"
 Rails.logger.debug '  - Login as: admin@lootea.cz / password123'
 Rails.logger.debug '  - Query products with priceTiers and variants fields'

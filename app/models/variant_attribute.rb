@@ -21,7 +21,7 @@ class VariantAttribute < ApplicationRecord
   # Scopes
   scope :active, -> { where(active: true) }
   scope :ordered, -> { order(:sort_order, :display_name) }
-  scope :with_values, -> { includes(:variant_attribute_values) }
+  scope :with_attribute_values, -> { includes(:variant_attribute_values) }
 
   # Enums for common attribute types
   enum :name, {

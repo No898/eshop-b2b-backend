@@ -16,7 +16,7 @@ pre-commit:
 
 pre-push:
   jobs:
-    # Security scan - vypnuto pro vývoj, zapni až budeš mít více kódu
+    # Security scan - vypnuto pro vývoj, zapnu až bude více kodu
     # - name: brakeman
     #   run: bundle exec brakeman --quiet --no-progress --faster --exit-on-warn --config-file config/brakeman.yml
 
