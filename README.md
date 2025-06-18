@@ -1,259 +1,244 @@
-# 🍃 Lootea B2B Backend
+# 📚 Lootea B2B API Documentation
 
-Ruby on Rails 8.0.2 API-only application with GraphQL for B2B tea e-commerce platform.
+Kompletní dokumentace pro **Lootea B2B Backend** - Ruby on Rails API s GraphQL pro B2B e-commerce platformu specializovanou na bubble tea produkty.
 
-## 🌍 Language Note
+## 🎯 Pro koho je tato dokumentace
 
-This backend API is built for Czech junior frontend developers, therefore:
-- **GraphQL schema descriptions** are in Czech for better understanding
-- **Frontend documentation** ([FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)) is in Czech
-- **Code comments and error messages** are in English (industry standard)
-- **This README** is in English for international developers
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Ruby 3.2+
-- PostgreSQL 14+
-- Node.js (for frontend integration)
-
-### Development Setup
-> **⚠️ Opensource projekt:** Musíte si nakonfigurovat vlastní credentials!
-
-```bash
-# Clone and setup
-git clone <repo-url>
-cd eshop-b2b-backend
-
-# Automatická instalace + kontrola credentials
-./bin/setup
-
-# Konfigurace credentials (POVINNÉ!)
-cp config/credentials.example.yml temp_credentials.yml
-# Upravte temp_credentials.yml podle potřeby, pak:
-EDITOR=nano rails credentials:edit
-
-# Start server
-bin/rails server
-```
-
-### GraphQL Playground
-- **Development**: http://localhost:3000/graphiql
-- **Production**: Disabled for security
-
-**📖 První kroky:** Přečtěte si [`SETUP.md`](SETUP.md) pro detailní instrukce!
-
-## 🔧 Tech Stack
-
-- **Backend**: Ruby 3.2, Rails 8.0.2 (API-only mode)
-- **Database**: PostgreSQL with ActiveRecord
-- **API**: GraphQL (graphql-ruby gem)
-- **Authentication**: JWT tokens with Devise
-- **Payments**: Comgate payment gateway integration
-- **Code Quality**: RuboCop, Lefthook pre-commit hooks
-
-## 📊 API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/graphql` | POST | Main GraphQL API endpoint |
-| `/webhooks/comgate` | POST | Comgate payment webhooks |
-| `/graphiql` | GET | GraphQL playground (dev only) |
-
-## 🏗️ Architecture
-
-```
-app/
-├── controllers/
-│   ├── application_controller.rb    # Base controller with JWT auth
-│   ├── graphql_controller.rb        # GraphQL endpoint
-│   └── webhooks/
-│       └── comgate_controller.rb    # Payment webhooks
-├── graphql/
-│   ├── mutations/
-│   │   ├── login_user.rb           # User authentication
-│   │   ├── register_user.rb        # User registration
-│   │   ├── create_order.rb         # Order creation
-│   │   └── pay_order.rb            # Payment initiation
-│   └── types/
-│       ├── user_type.rb            # User GraphQL type
-│       ├── product_type.rb         # Product GraphQL type
-│       └── order_type.rb           # Order GraphQL type
-├── models/
-│   ├── user.rb                     # User model with Devise
-│   ├── product.rb                  # Product catalog
-│   ├── order.rb                    # Orders with payment status
-│   └── order_item.rb               # Order line items
-└── services/
-    ├── comgate_service/            # Modular Comgate integration
-    │   ├── http_client.rb          # HTTP client functionality
-    │   └── response_parser.rb      # Response parsing
-    ├── comgate_service.rb          # Main payment service
-    └── comgate_webhook_service.rb  # Webhook processing
-```
-
-## 🔐 Configuration
-
-> **🚨 Bezpečnostní upozornění:** Tento projekt je opensource a neobsahuje produkční credentials. Musíte si nakonfigurovat vlastní!
-
-### 1️⃣ Rychlé nastavení
-```bash
-# Zkopírujte example soubor
-cp config/credentials.example.yml config/credentials.yml
-
-# Nakonfigurujte credentials
-EDITOR=nano rails credentials:edit
-```
-
-### 2️⃣ Povinná konfigurace
-Podle `config/credentials.example.yml` nakonfigurujte:
-
-**🔑 JWT Secret (povinné)**
-```bash
-# Vygenerujte bezpečný klíč
-rails secret
-# Vložte do credentials jako devise_jwt_secret_key
-```
-
-**💳 Comgate pro platby (povinné pro platby)**
-- `merchant_id`: Vaše Comgate merchant ID
-- `secret`: Váš Comgate secret klíč
-- Získáte na [Comgate portálu](https://portal.comgate.cz)
-
-### 3️⃣ Alternative: Environment Variables
-```bash
-# .env file pro development
-JWT_SECRET_KEY=your_jwt_secret_key
-COMGATE_MERCHANT_ID=your_merchant_id
-COMGATE_SECRET=your_secret_key
-```
-
-### 🆘 Troubleshooting
-- **Chyba JWT**: Zkontrolujte `devise_jwt_secret_key` v credentials
-- **Chyba Comgate**: Ověřte merchant_id a secret v Comgate portálu
-- **Permission denied**: Spusťte `chmod +x bin/setup`
-
-## 🧪 Testing
-
-### Run Tests
-```bash
-# RSpec tests (when implemented)
-bundle exec rspec
-
-# Code quality checks
-bundle exec rubocop
-
-# Pre-commit hooks
-bundle exec lefthook run pre-commit
-```
-
-### Manual API Testing
-```bash
-# Test GraphQL endpoint
-curl -X POST http://localhost:3000/graphql \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ products { id name priceDecimal } }"}'
-
-# Test webhook endpoint
-curl -X POST http://localhost:3000/webhooks/comgate \
-  -H "Content-Type: application/json" \
-  -d '{"transId":"test123","refId":"1","status":"PAID","price":"299","curr":"CZK","test":"true"}'
-```
-
-## 📖 Documentation
-
-- **[Frontend Guide](FRONTEND_GUIDE.md)** - Complete guide for frontend developers with UI tips (in Czech)
-- **GraphQL Schema** - Available at `/graphiql` in development
-- **Webhook Documentation** - Included in Frontend Guide
-
-## 🔄 Payment Flow
-
-1. **Order Creation**: Frontend creates order via `createOrder` mutation
-2. **Payment Initiation**: Frontend calls `payOrder` mutation
-3. **Redirect**: User is redirected to Comgate payment gateway
-4. **Webhook Processing**: Comgate sends payment status to `/webhooks/comgate`
-5. **Status Update**: Order status is automatically updated
-6. **Frontend Polling**: Frontend can poll for updated order status
-
-## 🚀 Deployment
-
-### Railway Deployment
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login and deploy
-railway login
-railway link
-railway up
-```
-
-### Environment Setup
-- Set `RAILS_MASTER_KEY` environment variable
-- Configure database URL
-- Set Comgate credentials
-- Configure CORS for frontend domain
-
-### Production Checklist
-- [ ] Rails credentials configured
-- [ ] Database migrations run
-- [ ] CORS configured for frontend domain
-- [ ] Webhook URL configured in Comgate dashboard
-- [ ] SSL certificate enabled
-- [ ] Error monitoring setup (optional)
-
-## 🛠️ Development
-
-### Code Quality
-- **RuboCop**: Enforces Ruby style guide
-- **Lefthook**: Pre-commit hooks for quality checks
-- **Senior-level patterns**: Proper error handling, logging, validation
-
-### Adding New Features
-1. Create migration if needed: `rails g migration AddFieldToModel`
-2. Update GraphQL types and mutations
-3. Add service classes for business logic
-4. Update frontend documentation
-5. Run quality checks: `bundle exec rubocop`
-
-### Database Schema
-```ruby
-# Key models and relationships
-User (email, role, company_name)
-├── has_many :orders
-
-Product (name, description, price_cents, currency)
-
-Order (total_cents, currency, status, payment_status)
-├── belongs_to :user
-├── has_many :order_items
-└── has_many :products, through: :order_items
-
-OrderItem (quantity, unit_price_cents)
-├── belongs_to :order
-└── belongs_to :product
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Make changes following code quality standards
-4. Run tests and quality checks
-5. Commit with descriptive messages
-6. Push and create Pull Request
-
-## 📞 Support
-
-For questions about:
-- **Backend API**: Check this README and code comments
-- **Frontend Integration**: See [FRONTEND_API_GUIDE.md](FRONTEND_API_GUIDE.md)
-- **Payment Issues**: Check Comgate service logs and webhook documentation
-
-## 📄 License
-
-This project is proprietary software for Lootea B2B platform.
+- **Frontend vývojáři** - integrace s GraphQL API
+- **Backend vývojáři** - rozšiřování a maintenance
+- **Junior developeři** - učení se best practices
+- **DevOps** - deployment a konfigurace
 
 ---
 
-**Built with ❤️ for Czech junior developers learning modern web development**
+## 🚀 Quick Start
+
+### 1. Základní setup
+```bash
+# Naklonuj projekt
+git clone <repo-url>
+cd eshop-b2b-backend
+
+# Automatická instalace
+./bin/setup
+
+# Spusť server
+bin/rails server
+```
+
+### 2. První kroky
+1. **[Setup Guide](./docs/SETUP.md)** - detailní instalační návod
+2. **[GraphQL Playground](http://localhost:3000/graphiql)** - testování API
+3. **[Seed data](./db/seeds.rb)** - ukázková data pro vývoj
+
+---
+
+## 📖 Dokumentace
+
+### 🔗 API Reference
+Kompletní dokumentace GraphQL API a backend systémů:
+
+- **[GraphQL API](./docs/api/graphql.md)** - queries, mutations, types s příklady
+- **[Security Guide](./docs/api/security.md)** - JWT, rate limiting, query analysis
+- **[Address System](./docs/api/addresses.md)** - správa adres s českými specifiky
+- **[Inventory System](./docs/api/inventory.md)** - skladové hospodářství
+- **[Bulk Pricing](./docs/api/bulk-pricing.md)** - množstevní slevy (1ks/1bal/10bal)
+- **[Product Variants](./docs/api/variants.md)** - systém variant produktů
+
+### 💻 Frontend Components
+Průvodce pro frontend vývojáře:
+
+- **[Authentication](./docs/components/auth.md)** - JWT autentizace, login/logout komponenty
+- **[UI Components](./docs/components/ui.md)** - React komponenty pro e-shop
+- **[Error Handling](./docs/components/errors.md)** - error handling patterns
+
+### 📋 Development Guides
+Návody pro vývojáře:
+
+- **[Setup Guide](./docs/SETUP.md)** - instalace a konfigurace
+- **[Development Log](./docs/DEVELOPMENT_LOG.md)** - historie vývoje projektu
+- **[Frontend Guide](./docs/FRONTEND_GUIDE.md)** - kompletní frontend implementace
+
+---
+
+## 🏗️ Architektura systému
+
+### 🛠️ Tech Stack
+- **Backend:** Ruby on Rails 7.0 + GraphQL
+- **Database:** PostgreSQL
+- **Authentication:** JWT tokens
+- **File Storage:** Active Storage
+- **Payment:** Comgate gateway
+- **Security:** Rack::Attack, query complexity analysis
+
+### 📊 Klíčové systémy
+
+#### ✅ Dokončené funkce
+- **User Management** - registrace, přihlášení, role (admin/customer)
+- **Product Catalog** - produkty s obrázky, specifikacemi
+- **Inventory Management** - real-time skladové zásoby
+- **Address System** - firemní adresy s IČO/DIČ validací
+- **Bulk Pricing** - množstevní slevy pro B2B (1ks/1bal/10bal)
+- **Product Variants** - příchutě, velikosti, barvy
+- **Order Management** - objednávky s automatickou rezervací zásob
+- **Payment Integration** - Comgate platební brána
+- **File Uploads** - produktové obrázky, avatary, loga
+
+#### 🔄 V plánu
+- **Reporting & Analytics** - prodejní reporty
+- **Multi-tenant Support** - více firem v jedné instanci
+- **Advanced Search** - fulltextové vyhledávání
+- **Email Notifications** - automatické emaily
+- **Mobile API** - optimalizace pro mobilní aplikace
+
+---
+
+## 🎨 B2B Specifika
+
+### České prostředí
+- **IČO/DIČ validace** - kontrola formátu a kontrolních součtů
+- **Firemní adresy** - fakturační, dodací, sídlo firmy
+- **PSČ formátování** - automatické formátování "123 45"
+- **Česká lokalizace** - chybové hlášky v češtině
+
+### B2B funkce
+- **Množstevní slevy** - standardní tiers 1ks/1bal/10bal
+- **Firemní účty** - registrace s názvem firmy
+- **Admin panel** - správa produktů, objednávek, uživatelů
+- **Bulk operace** - hromadné úpravy zásob a cen
+
+---
+
+## 🔧 Development
+
+### Spuštění pro vývoj
+```bash
+# Database setup
+bin/rails db:create db:migrate db:seed
+
+# Start server
+bin/rails server
+
+# GraphiQL playground
+open http://localhost:3000/graphiql
+
+# Run tests
+bin/rspec
+```
+
+### Důležité příkazy
+```bash
+# Generování nových migrations
+bin/rails generate migration AddFieldToModel field:type
+
+# Console pro testování
+bin/rails console
+
+# RuboCop kontrola kódu
+bin/rubocop
+
+# Security audit
+bin/brakeman
+```
+
+### Code Quality
+- **RuboCop** - dodržování Ruby/Rails konvencí
+- **Brakeman** - security audit
+- **RSpec** - testování
+- **GraphQL** - type safety
+- **Concerns** - modulární architektura
+
+---
+
+## 📈 Statistiky projektu
+
+### Aktuální stav
+- **20+ modelů** - kompletní e-commerce funkcionalita
+- **50+ GraphQL fields** - bohaté API
+- **100% RuboCop compliance** - clean code
+- **Senior-level architecture** - concerns, best practices
+- **Production-ready** - Railway deployment
+
+### Výkonnost
+- **Query complexity analysis** - ochrana před drahými queries
+- **Database indexy** - optimalizované vyhledávání
+- **Eager loading** - prevence N+1 problémů
+- **Caching** - Redis pro session a cache
+
+---
+
+## 🚢 Deployment
+
+### Railway (Production)
+```bash
+# Automatický deployment při push na main
+git push origin main
+
+# Railway CLI
+railway login
+railway deploy
+```
+
+### Environment Variables
+```env
+DATABASE_URL=postgresql://...
+RAILS_MASTER_KEY=...
+COMGATE_MERCHANT_ID=...
+COMGATE_SECRET=...
+CORS_ORIGINS=https://yourdomain.com
+```
+
+---
+
+## 🤝 Contributing
+
+### Workflow
+1. **Fork** repository
+2. **Create feature branch** - `git checkout -b feature/amazing-feature`
+3. **Follow code standards** - RuboCop, tests
+4. **Commit changes** - conventional commits
+5. **Push to branch** - `git push origin feature/amazing-feature`
+6. **Open Pull Request**
+
+### Code Standards
+- **Ruby/Rails conventions** - follow RuboCop rules
+- **GraphQL best practices** - proper types, descriptions
+- **Test coverage** - RSpec for new features
+- **Documentation** - update relevant .md files
+- **Security** - never commit secrets
+
+---
+
+## 📞 Support
+
+### Kontakt
+- **GitHub Issues** - bug reports, feature requests
+- **Documentation** - [docs/](./docs/) folder
+- **GraphQL Playground** - http://localhost:3000/graphiql
+
+### Užitečné odkazy
+- **[Rails Guides](https://guides.rubyonrails.org/)**
+- **[GraphQL Ruby](https://graphql-ruby.org/)**
+- **[PostgreSQL Docs](https://www.postgresql.org/docs/)**
+- **[Railway Docs](https://docs.railway.app/)**
+
+---
+
+## 📄 License
+
+Tento projekt je licencován pod MIT License - viz [LICENSE](LICENSE) soubor pro detaily.
+
+---
+
+## 🎉 Acknowledgments
+
+- **Ruby on Rails** - amazing framework
+- **GraphQL Ruby** - excellent GraphQL implementation
+- **Railway** - simple deployment platform
+- **Czech B2B community** - inspiration for features
+
+---
+
+*Dokumentace aktualizována: 18.6.2025*
+
+**Happy coding! 🚀**

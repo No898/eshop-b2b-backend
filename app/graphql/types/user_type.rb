@@ -22,8 +22,8 @@ module Types
       object.company_logo.attached? ? rails_blob_url(object.company_logo) : nil
     end
 
-    # Associations
-    field :orders, [Types::OrderType], null: false, description: 'Seznam objednávek uživatele'
+    # Associations - use lazy loading to avoid circular dependency
+    field :orders, [-> { Types::OrderType }], null: false, description: 'Seznam objednávek uživatele'
     def orders
       current_user = context[:current_user]
 
