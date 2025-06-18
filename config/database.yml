@@ -51,11 +51,7 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  database: lootea_b2b_backend_test
-  username: postgres
-  password: password
-  host: localhost
-  port: 5432
+  url: <%= ENV.fetch("DATABASE_URL") { "postgres://postgres:password@localhost:5432/lootea_b2b_backend_test" } %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

@@ -38,6 +38,10 @@ class Product < ApplicationRecord
     price_cents / 100.0
   end
 
+  def formatted_price
+    "#{price_decimal} #{currency}"
+  end
+
   def price_for_quantity(quantity)
     return price_decimal if quantity <= 1
 
